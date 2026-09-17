@@ -23,3 +23,14 @@ export function requireNonNegativeInteger(value: number, field: string, code: st
   }
   return value;
 }
+
+/** Tiền điều kiện cho máy trạng thái: chỉ những trạng thái liệt kê mới được phép hành động. */
+export function requireState<S extends string>(current: S, allowed: readonly S[], action: string): void {
+  if (!allowed.includes(current)) {
+    throw new DomainError(
+      'INVALID_TRANSITION',
+      `Không thể "${action}" khi đang ở trạng thái ${current}`,
+      { action, current, allowed: [...allowed] },
+    );
+  }
+}

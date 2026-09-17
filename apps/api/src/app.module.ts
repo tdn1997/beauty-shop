@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
 
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { OrderingModule } from './modules/ordering/ordering.module';
+import { SharedModule } from './modules/shared/shared.module';
+
 /**
- * Composition root. Mỗi module nghiệp vụ (catalog, inventory, ordering, ...)
- * sẽ được đăng ký ở đây khi tầng application/api của nó ra đời.
+ * Composition root. Các module còn lại (catalog, payment, shipping, ...)
+ * được đăng ký ở đây khi tầng application/api của chúng ra đời.
  */
 @Module({
-  imports: [],
+  imports: [SharedModule, InventoryModule, OrderingModule],
 })
 export class AppModule {}

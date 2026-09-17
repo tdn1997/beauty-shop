@@ -257,3 +257,75 @@ describe('Money - encapsulation', () => {
     expect(dto).toEqual({ amount: '19.99', currency: 'USD' });
   });
 });
+
+describe('Money - minor units', () => {
+  it('should expose the amount as minor units of its currency', () => {
+    // arrange
+    const usd = Money.parse('19.99', 'USD');
+
+    // confirm
+    expect(usd.toString()).toBe('19.99 USD');
+
+    // act
+    const units = usd.toMinorUnits();
+
+    // assert
+    expect(units).toBe(1999n);
+  });
+
+  it('should treat a zero-exponent currency as its own minor unit', () => {
+    // arrange
+    const vnd = Money.parse('459000', 'VND');
+
+    // confirm
+    expect(vnd.toString()).toBe('459000 VND');
+
+    // act
+    const units = vnd.toMinorUnits();
+
+    // assert
+    expect(units).toBe(459000n);
+  });
+
+  it('should rebuild the same amount from minor units', () => {
+    // arrange
+    const original = Money.parse('19.99', 'USD');
+
+    // confirm
+    expect(original.toMinorUnits()).toBe(1999n);
+
+    // act
+    const rebuilt = Money.fromMinorUnits(original.toMinorUnits(), 'USD');
+
+    // assert
+    expect(rebuilt.equals(original)).toBe(true);
+  });
+
+  it('should keep the sign when rebuilding a negative amount', () => {
+    // arrange
+    const owed = Money.parse('-19.99', 'USD');
+
+    // confirm
+    expect(owed.isNegative()).toBe(true);
+
+    // act
+    const rebuilt = Money.fromMinorUnits(owed.toMinorUnits(), 'USD');
+
+    // assert
+    expect(rebuilt.toString()).toBe('-19.99 USD');
+  });
+
+  it('should reject minor units that are not a whole number', () => {
+    // arrange
+    const notAnInteger = 19.99 as unknown as bigint;
+
+    // confirm
+    expect(typeof notAnInteger).toBe('number');
+
+    // act
+    const act = () => Money.fromMinorUnits(notAnInteger, 'USD');
+
+    // assert
+    expect(act).toThrow(/INVALID_MONEY/);
+  });
+});
