@@ -1,0 +1,109 @@
+// Lược đồ lưu trữ. Đây là tầng đóng gói thứ hai: domain giữ bất biến trong bộ nhớ,
+// còn CHECK / UNIQUE dưới đây giữ chúng kể cả khi có ai đó ghi thẳng vào DB.
+// Các ràng buộc CHECK nằm trong migration SQL — Prisma schema không khai báo được.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+  DISPATCHED
+  CANCELLED
+
+  @@map("order_status")
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("idempotency_status")
+}
+
+model SalesOrder {
+  id                 String      @id
+  customerId         String      @map("customer_id")
+  currency           String      @db.Char(3)
+  status             OrderStatus
+  /// Optimistic lock: mọi lần ghi đều kèm `WHERE version = <phiên bản đã đọc>`.
+  version            Int         @default(0)
+  cancellationReason String?     @map("cancellation_reason")
+
+  // Địa chỉ giao là **bản chụp** tại thời điểm đặt, không phải khoá ngoại sang
+  // sổ địa chỉ của khách: khách sửa địa chỉ sau này không được làm đổi đơn cũ.
+  shipRecipientName String? @map("ship_recipient_name")
+  shipPhone         String? @map("ship_phone")
+  shipLine1         String? @map("ship_line1")
+  shipLine2         String? @map("ship_line2")
+  shipWard          String? @map("ship_ward")
+  shipDistrict      String? @map("ship_district")
+  shipProvince      String? @map("ship_province")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lines OrderLine[]
+
+  @@index([customerId])
+  @@map("sales_order")
+}
+
+model OrderLine {
+  id           String @id
+  orderId      String @map("order_id")
+  variantId    String @map("variant_id")
+  sku          String
+  /// Bản chụp tên và giá lúc đặt — không tham chiếu catalog.
+  nameSnapshot String @map("name_snapshot")
+  /// Tiền lưu bằng đơn vị nhỏ nhất (BigInt), không bao giờ là số thực.
+  unitPrice    BigInt @map("unit_price")
+  quantity     Int
+
+  order SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Một biến thể chỉ được xuất hiện một dòng trong đơn — gộp lượng, không nhân dòng.
+  @@unique([orderId, variantId])
+  @@map("order_line")
+}
+
+model InventoryLot {
+  id          String    @id
+  variantId   String    @map("variant_id")
+  lotCode     String    @map("lot_code")
+  onHand      Int       @map("on_hand")
+  /// Phần đã giữ chỗ. Bất biến `0 <= reserved <= on_hand` do CHECK ở migration giữ.
+  reserved    Int       @default(0)
+  expiresOn   DateTime? @map("expires_on") @db.Date
+  blocked     Boolean   @default(false)
+  blockReason String?   @map("block_reason")
+  version     Int       @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([variantId, lotCode])
+  @@index([variantId])
+  @@map("inventory_lot")
+}
+
+model IdempotencyRecord {
+  customerId  String            @map("customer_id")
+  key         String
+  requestHash String            @map("request_hash")
+  status      IdempotencyStatus
+  response    Json?
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  // Khoá chính ghép chính là cơ chế nguyên tử của `reserve()`: hai request song
+  // song cùng khoá thì một cái phải vấp lỗi trùng khoá, không cái nào đọc-rồi-ghi.
+  @@id([customerId, key])
+  @@map("idempotency_record")
+}

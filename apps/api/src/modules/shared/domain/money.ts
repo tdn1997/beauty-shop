@@ -58,6 +58,20 @@ export class Money {
     return new Money(0n, currency);
   }
 
+  /**
+   * Factory từ đơn vị nhỏ nhất — hình dạng mà tầng lưu trữ giữ.
+   * Đi đường này thay vì qua chuỗi thập phân để không phải làm tròn lần nào.
+   */
+  static fromMinorUnits(minorUnits: bigint, currency: CurrencyCode): Money {
+    if (typeof minorUnits !== 'bigint') {
+      throw new DomainError('INVALID_MONEY', 'Đơn vị nhỏ nhất phải là bigint', {
+        minorUnits: String(minorUnits),
+        currency,
+      });
+    }
+    return new Money(minorUnits, currency);
+  }
+
   get currency(): CurrencyCode {
     return this.#currency;
   }
@@ -80,6 +94,11 @@ export class Money {
 
   isNegative(): boolean {
     return this.#minorUnits < 0n;
+  }
+
+  /** Hình dạng chính xác để lưu xuống DB: không thập phân, không làm tròn. */
+  toMinorUnits(): bigint {
+    return this.#minorUnits;
   }
 
   toJSON(): MoneyDto {

@@ -5,7 +5,8 @@ Trọng tâm: thuộc tính, phương thức, Encapsulation, GRASP.
 
 > **Tiến độ**: ô `[x]` là đã làm xong và có test giữ.
 > Chi tiết trạng thái: `README.md` · Quy ước code: `CLAUDE.md`.
-> Giai đoạn 1 và 2 xong; Giai đoạn 3 xong phần domain, còn phần DB (Prisma).
+> Giai đoạn 1, 2, 3 xong. Giai đoạn 5 đã xong trước hai mục (Pure Fabrication,
+> ranh giới transaction) vì repository Prisma cần chúng.
 
 ---
 
@@ -61,15 +62,30 @@ Quy ước áp dụng:
 - [x] `Order.lines` là `#private`; getter trả `Object.freeze([...])` hoặc DTO.
 - [x] `InventoryLot.reserve(qty)` là cách duy nhất tăng `reserved`; không expose setter.
 - [x] Constructor private + static factory (`Order.draft()`, `Order.fromQuote()`).
-- [ ] Không trả entity Prisma ra API — mapper `toDto()` ở tầng `api/`.
+- [x] Không trả entity Prisma ra API. Repository trả aggregate, `toOrderDto()` trả dữ liệu thuần,
+      và `architecture.spec.ts` chặn `api/` + `application/` import `infrastructure/`.
+      *(Mapper hiện nằm ở `application/order.dto.ts`; nó sẽ chuyển xuống `api/` cùng lúc
+      với controller đầu tiên ở Giai đoạn 4 — chưa có `api/` nào trong `ordering` để đặt.)*
 - [x] Repository interface khai báo trong `application/`, implement trong `infrastructure/`.
-- [ ] Bất biến tầng DB (đóng gói ở mức lưu trữ):
-  - `CHECK (reserved >= 0 AND reserved <= on_hand)`
+- [x] Bất biến tầng DB (đóng gói ở mức lưu trữ) — `prisma/migrations/20260917000000_init/migration.sql`:
+  - `CHECK (reserved >= 0 AND reserved <= on_hand)`, `CHECK (on_hand >= 0)`
   - `CHECK (quantity > 0)`, `CHECK (unit_price >= 0)`
-  - `UNIQUE (customer_id, key)` cho idempotency
-- [ ] Giữ tồn bằng SQL có điều kiện, không read-then-write:
-  `UPDATE inventory_lot SET reserved = reserved + $1 WHERE id = $2 AND on_hand - reserved >= $1 AND blocked = false`
-- [ ] Cột `version` cho `sales_order` + `inventory_lot` (optimistic lock).
+  - `CHECK` soi lại tiền điều kiện của `confirm()` (rời nháp thì phải có địa chỉ)
+    và `cancel()` (đã huỷ thì phải có lý do)
+  - `UNIQUE (customer_id, key)` cho idempotency (chính là khoá chính ghép)
+  - **Chưa chạy được trên Postgres thật** — Docker không kéo nổi image trong máy này.
+    SQL được thực thi và kiểm ở Giai đoạn 7.
+- [x] Giữ tồn bằng SQL có điều kiện, không read-then-write —
+  `PrismaInventoryRepository.reserve()`:
+  `UPDATE inventory_lot SET reserved = reserved + $1, version = version + 1
+   WHERE id = $2 AND blocked = false AND on_hand - reserved >= $1
+     AND (expires_on IS NULL OR expires_on > $3)`.
+  Trượt rồi mới đọc một lần để chẩn đoán lý do (`LOT_NOT_FOUND` / `LOT_BLOCKED` /
+  `LOT_EXPIRED` / `OUT_OF_STOCK`) — lần đọc đó không mở lại khe đọc-rồi-ghi.
+- [x] Cột `version` cho `sales_order` + `inventory_lot` (optimistic lock).
+  Aggregate giữ thêm `persistedVersion` — phiên bản *đang nằm trong DB* — nên
+  `UPDATE ... WHERE version = <phiên bản đã đọc>` có đúng thứ để so.
+  Thua cuộc đua → `Result.err('CONCURRENT_MODIFICATION')`, hàng cũ không bị đụng.
 
 ---
 
@@ -90,7 +106,10 @@ Quy ước áp dụng:
 ## Giai đoạn 5 — GRASP phần hai (tuần 4)
 
 - [ ] **Polymorphism**: interface `PaymentGateway`; `MockGateway` (scripted PAID/FAILED/UNKNOWN) + 1 adapter sandbox. Chọn adapter bằng registry ở composition root.
-- [ ] **Pure Fabrication**: `PrismaOrderRepository`, `PrismaInventoryRepository`. Transaction boundary do application service quyết định, repository không tự commit.
+- [x] **Pure Fabrication**: `PrismaOrderRepository`, `PrismaInventoryRepository`
+  (làm sớm ở Giai đoạn 3 vì các bất biến tầng DB cần chúng). Ranh giới transaction
+  nằm ở cổng `TransactionManager`; repository lấy client *đang hiệu lực* từ
+  `PrismaClientSource` nên không tự mở, không tự commit.
 - [ ] **Indirection**: `NotificationPort` + bảng `outbox_event` ghi cùng transaction với đơn; worker `@nestjs/schedule` đọc và gửi, có retry giới hạn.
 - [ ] **Protected Variations**: `DiscountPolicy`, `ShippingPolicy` trả giá trị giảm/phí, không sửa `Order`. Thứ tự: ngưỡng → phần trăm → làm tròn → trần → `min(base)`.
 

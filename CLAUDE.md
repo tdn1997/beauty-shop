@@ -9,10 +9,11 @@ Kế hoạch đầy đủ 7 giai đoạn: `plans/beautyshop.md`. Trạng thái h
 ## Lệnh
 
 ```bash
-npm test                              # 134 test, Vitest
+npm test                              # 205 test, Vitest
 npm run typecheck                     # tsc cho cả 2 workspace
 npm run build --workspace=@beautyshop/api
 npm run db:up                         # Postgres qua Docker, cổng 5433
+npm run db:migrate                    # áp migration (CHECK, UNIQUE, cột version)
 ```
 
 Chạy test trước khi coi bất cứ việc gì là xong. Không có ngoại lệ.
@@ -76,9 +77,27 @@ Viết code mà không có test yêu cầu nó → xoá. Đã áp dụng trong r
 `Money.subtract/compareTo`, `ProductVariant.rename`, `OrderCommandService.markPaid/cancel`
 đều bị gỡ, sẽ thêm lại kèm test khi có consumer thật.
 
+## Lưu trữ
+
+Aggregate tự quyết định hình dạng lưu trữ của mình: `toSnapshot()` + `static rehydrate()`.
+Repository dịch snapshot ↔ hàng trong bảng, **không** đọc `#private`.
+`rehydrate` là đường duy nhất đặt thẳng trạng thái mà không qua máy trạng thái —
+chỉ repository được gọi.
+
+Aggregate giữ `persistedVersion` (phiên bản đang trong DB) tách khỏi `version`
+(phiên bản hiện tại). Đó là vế `WHERE version = ?` của optimistic lock.
+Thua cuộc đua → `Result.err('CONCURRENT_MODIFICATION')`, **không** `markPersisted()`.
+
+Repository không tự mở transaction: nó lấy client đang hiệu lực từ
+`PrismaClientSource`. Ranh giới do application service vạch qua `TransactionManager`.
+
+Bất biến được giữ ở **hai** tầng: domain (trong bộ nhớ) và `CHECK`/`UNIQUE`
+(trong migration). Lặp lại là cố ý — domain chỉ chặn đường đi qua code.
+
 ## Còn nợ, cố ý
 
-Repository mới có bản in-memory. Optimistic lock thật, `CHECK (reserved <= on_hand)`,
-`UPDATE ... WHERE on_hand - reserved >= $1` thuộc Giai đoạn 3 & 5.
+Migration chưa chạy trên Postgres thật (Docker không kéo được image ở máy này).
 Cạnh tranh thật chỉ chứng minh được bằng Testcontainers + Postgres (Giai đoạn 7) —
 **không** viết "test cạnh tranh" trên Map trong bộ nhớ, đó là test xanh giả.
+Client Prisma giả trong test là tất định: nó kiểm *câu lệnh gửi đi* và *cách dịch
+0 hàng bị sửa*, không giả vờ kiểm cô lập giao dịch.

@@ -239,3 +239,155 @@ describe('InventoryLot - encapsulation', () => {
     expect(lot.availableAt(clock)).toBe(10);
   });
 });
+
+describe('InventoryLot - persistence snapshot', () => {
+  it('should describe every stored field in its snapshot', () => {
+    // arrange
+    const lot = InventoryLot.create(lotProps);
+    lot.reserve(3);
+
+    // confirm
+    expect(lot.reserved).toBe(3);
+
+    // act
+    const snapshot = lot.toSnapshot();
+
+    // assert
+    expect(snapshot).toEqual({
+      id: 'lot_1',
+      variantId: 'var_1',
+      lotCode: 'L2609',
+      onHand: 10,
+      reserved: 3,
+      expiresOn: new Date('2027-01-31T00:00:00.000Z'),
+      blocked: false,
+      blockReason: null,
+      version: lot.version,
+    });
+  });
+
+  it('should round-trip a blocked lot through rehydrate', () => {
+    // arrange
+    const lot = InventoryLot.create(lotProps);
+    lot.reserve(4);
+    lot.block('Nghi ngờ hỏng bao bì');
+
+    // confirm
+    expect(lot.isBlocked()).toBe(true);
+
+    // act
+    const restored = InventoryLot.rehydrate(lot.toSnapshot());
+
+    // assert
+    expect(restored.toSnapshot()).toEqual(lot.toSnapshot());
+  });
+
+  it('should copy the expiry date out of the snapshot', () => {
+    // arrange
+    const lot = InventoryLot.create(lotProps);
+    const snapshot = lot.toSnapshot();
+
+    // confirm
+    expect(snapshot.expiresOn).not.toBeNull();
+
+    // act
+    (snapshot.expiresOn as Date).setFullYear(1999);
+
+    // assert
+    expect(lot.expiresOn?.getFullYear()).toBe(2027);
+  });
+
+  it('should still guard the stock invariant after rehydrate', () => {
+    // arrange
+    const lot = InventoryLot.create({ ...lotProps, onHand: 5 });
+    lot.reserve(5);
+    const restored = InventoryLot.rehydrate(lot.toSnapshot());
+    const before = restored.toSnapshot();
+
+    // confirm
+    expect(restored.reserved).toBe(5);
+
+    // act
+    const act = () => restored.reserve(1);
+
+    // assert
+    expect(act).toThrow(/OUT_OF_STOCK/);
+    expect(restored.toSnapshot()).toEqual(before);
+  });
+});
+
+describe('InventoryLot - optimistic locking', () => {
+  it('should start at version zero', () => {
+    // arrange
+    const props = lotProps;
+
+    // confirm
+    expect(props.onHand).toBe(10);
+
+    // act
+    const lot = InventoryLot.create(props);
+
+    // assert
+    expect(lot.version).toBe(0);
+  });
+
+  it('should bump the version on every state change', () => {
+    // arrange
+    const lot = InventoryLot.create(lotProps);
+    const before = lot.version;
+
+    // confirm
+    expect(before).toBe(0);
+
+    // act
+    lot.reserve(2);
+
+    // assert
+    expect(lot.version).toBe(before + 1);
+  });
+
+  it('should not bump the version when a reservation is rejected', () => {
+    // arrange
+    const lot = InventoryLot.create({ ...lotProps, onHand: 1 });
+    const before = lot.version;
+
+    // confirm
+    expect(lot.availableAt(new FixedClock(NOW))).toBe(1);
+
+    // act
+    expect(() => lot.reserve(2)).toThrow(/OUT_OF_STOCK/);
+
+    // assert
+    expect(lot.version).toBe(before);
+  });
+
+  it('should have no persisted version before it is ever stored', () => {
+    // arrange
+    const lot = InventoryLot.create(lotProps);
+
+    // confirm
+    expect(lot.version).toBe(0);
+
+    // act
+    const persisted = lot.persistedVersion;
+
+    // assert
+    expect(persisted).toBeNull();
+  });
+
+  it('should leave the persisted version behind after a later change', () => {
+    // arrange
+    const lot = InventoryLot.rehydrate(InventoryLot.create(lotProps).toSnapshot());
+    const stored = lot.persistedVersion;
+
+    // confirm
+    expect(stored).toBe(lot.version);
+
+    // act
+    lot.reserve(1);
+
+    // assert
+    expect(lot.persistedVersion).toBe(stored);
+    expect(lot.version).toBe((stored as number) + 1);
+  });
+});

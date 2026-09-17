@@ -446,3 +446,163 @@ describe('Order - optimistic locking', () => {
     expect(order.version).toBe(before);
   });
 });
+
+describe('Order - persistence snapshot', () => {
+  it('should describe every stored field in its snapshot', () => {
+    // arrange
+    const order = orderReadyToConfirm();
+    order.confirm();
+
+    // confirm
+    expect(order.status).toBe(OrderStatus.Confirmed);
+
+    // act
+    const snapshot = order.toSnapshot();
+
+    // assert
+    expect(snapshot).toEqual({
+      id: 'ord_1',
+      customerId: 'cus_1',
+      currency: 'VND',
+      status: OrderStatus.Confirmed,
+      version: order.version,
+      cancellationReason: null,
+      shippingAddress: address.toJSON(),
+      lines: [
+        {
+          variantId: 'var_1',
+          sku: 'SRM-VTC-30',
+          nameSnapshot: 'Serum Vitamin C 30ml',
+          unitPriceMinorUnits: 459000n,
+          quantity: 2,
+        },
+      ],
+    });
+  });
+
+  it('should round-trip through rehydrate without losing state', () => {
+    // arrange
+    const order = orderReadyToConfirm();
+    order.addQuotedLine(mask);
+    order.confirm();
+
+    // confirm
+    expect(order.lines).toHaveLength(2);
+
+    // act
+    const restored = Order.rehydrate(order.toSnapshot());
+
+    // assert
+    expect(restored.toSnapshot()).toEqual(order.toSnapshot());
+    expect(restored.itemsTotal().equals(order.itemsTotal())).toBe(true);
+  });
+
+  it('should keep money exact through the snapshot', () => {
+    // arrange
+    const order = Order.draft({ id: 'ord_2', customerId: 'cus_1', currency: 'USD' });
+    order.addQuotedLine({ ...serum, unitPriceSnapshot: Money.parse('19.99', 'USD'), quantity: 3 });
+
+    // confirm
+    expect(order.itemsTotal().toString()).toBe('59.97 USD');
+
+    // act
+    const restored = Order.rehydrate(order.toSnapshot());
+
+    // assert
+    expect(restored.itemsTotal().toString()).toBe('59.97 USD');
+  });
+
+  it('should hand out a frozen line list in the snapshot', () => {
+    // arrange
+    const order = orderReadyToConfirm();
+
+    // confirm
+    expect(order.lines).toHaveLength(1);
+
+    // act
+    const snapshot = order.toSnapshot();
+
+    // assert
+    expect(Object.isFrozen(snapshot.lines)).toBe(true);
+  });
+
+  it('should still refuse an illegal transition after rehydrate', () => {
+    // arrange
+    const order = orderReadyToConfirm();
+    order.confirm();
+    const restored = Order.rehydrate(order.toSnapshot());
+    const before = restored.toSnapshot();
+
+    // confirm
+    expect(restored.status).toBe(OrderStatus.Confirmed);
+
+    // act
+    const act = () => restored.addQuotedLine(mask);
+
+    // assert
+    expect(act).toThrow(/INVALID_TRANSITION/);
+    expect(restored.toSnapshot()).toEqual(before);
+  });
+});
+
+describe('Order - persisted version', () => {
+  it('should have no persisted version before it is ever stored', () => {
+    // arrange
+    const order = draftOrder();
+
+    // confirm
+    expect(order.version).toBe(0);
+
+    // act
+    const persisted = order.persistedVersion;
+
+    // assert
+    expect(persisted).toBeNull();
+  });
+
+  it('should match its persisted version to the current one once stored', () => {
+    // arrange
+    const order = orderReadyToConfirm();
+
+    // confirm
+    expect(order.persistedVersion).toBeNull();
+
+    // act
+    order.markPersisted();
+
+    // assert
+    expect(order.persistedVersion).toBe(order.version);
+  });
+
+  it('should treat the stored version as already persisted after rehydrate', () => {
+    // arrange
+    const order = orderReadyToConfirm();
+    order.markPersisted();
+
+    // confirm
+    expect(order.version).toBeGreaterThan(0);
+
+    // act
+    const restored = Order.rehydrate(order.toSnapshot());
+
+    // assert
+    expect(restored.persistedVersion).toBe(order.version);
+  });
+
+  it('should leave the persisted version behind after a later change', () => {
+    // arrange
+    const order = orderReadyToConfirm();
+    order.markPersisted();
+    const stored = order.persistedVersion;
+
+    // confirm
+    expect(stored).toBe(order.version);
+
+    // act
+    order.confirm();
+
+    // assert
+    expect(order.persistedVersion).toBe(stored);
+    expect(order.version).toBe((stored as number) + 1);
+  });
+});

@@ -15,6 +15,22 @@ export interface CreateInventoryLotProps {
 }
 
 /**
+ * Hình dạng lưu trữ của lô hàng — hợp đồng giữa aggregate và repository.
+ * Repository dịch snapshot này sang hàng trong bảng, không đọc `#private`.
+ */
+export interface InventoryLotSnapshot {
+  readonly id: string;
+  readonly variantId: string;
+  readonly lotCode: string;
+  readonly onHand: number;
+  readonly reserved: number;
+  readonly expiresOn: Date | null;
+  readonly blocked: boolean;
+  readonly blockReason: string | null;
+  readonly version: number;
+}
+
+/**
  * Lô hàng trong kho. Bất biến cốt lõi: `0 <= reserved <= onHand`.
  *
  * Không có setter nào cho `onHand`/`reserved` — chỉ `reserve` / `release` / `issue`
@@ -29,6 +45,8 @@ export class InventoryLot {
   #reserved: number;
   #blocked: boolean;
   #blockReason: string | null;
+  #version: number;
+  #persistedVersion: number | null;
 
   private constructor(props: {
     id: string;
@@ -45,6 +63,8 @@ export class InventoryLot {
     this.#reserved = 0;
     this.#blocked = false;
     this.#blockReason = null;
+    this.#version = 0;
+    this.#persistedVersion = null;
   }
 
   static create(props: CreateInventoryLotProps): InventoryLot {
@@ -55,6 +75,37 @@ export class InventoryLot {
     const expiresOn = props.expiresOn ? new Date(props.expiresOn.getTime()) : null;
 
     return new InventoryLot({ id, variantId, lotCode, onHand, expiresOn });
+  }
+
+  /**
+   * Dựng lại lô đã lưu. **Chỉ repository được gọi** — đường duy nhất đặt thẳng
+   * `reserved`/`blocked` mà không đi qua `reserve()` / `block()`.
+   */
+  static rehydrate(snapshot: InventoryLotSnapshot): InventoryLot {
+    const lot = new InventoryLot({
+      id: requireNonBlank(snapshot.id, 'id', 'INVALID_LOT'),
+      variantId: requireNonBlank(snapshot.variantId, 'variantId', 'INVALID_LOT'),
+      lotCode: requireNonBlank(snapshot.lotCode, 'lotCode', 'INVALID_LOT'),
+      onHand: requireNonNegativeInteger(snapshot.onHand, 'onHand', 'INVALID_LOT'),
+      expiresOn: snapshot.expiresOn ? new Date(snapshot.expiresOn.getTime()) : null,
+    });
+
+    const reserved = requireNonNegativeInteger(snapshot.reserved, 'reserved', 'INVALID_LOT');
+    if (reserved > snapshot.onHand) {
+      throw new DomainError('INVALID_LOT', 'Phần đã giữ không được vượt tồn vật lý', {
+        lotId: snapshot.id,
+        onHand: snapshot.onHand,
+        reserved,
+      });
+    }
+
+    lot.#reserved = reserved;
+    lot.#blocked = snapshot.blocked;
+    lot.#blockReason = snapshot.blockReason;
+    lot.#version = snapshot.version;
+    lot.#persistedVersion = snapshot.version;
+
+    return lot;
   }
 
   get id(): string {
@@ -75,6 +126,18 @@ export class InventoryLot {
 
   get reserved(): number {
     return this.#reserved;
+  }
+
+  get version(): number {
+    return this.#version;
+  }
+
+  /**
+   * Phiên bản đang nằm trong DB theo hiểu biết của thể hiện này — `null` nếu
+   * lô chưa từng được lưu. Đây là vế `WHERE version = ?` của optimistic lock.
+   */
+  get persistedVersion(): number | null {
+    return this.#persistedVersion;
   }
 
   /** Trả bản sao: người gọi sửa Date nhận được cũng không đụng tới lô hàng. */
@@ -110,6 +173,7 @@ export class InventoryLot {
       });
     }
     this.#reserved += quantity;
+    this.#touch();
   }
 
   release(quantity: number): void {
@@ -122,6 +186,7 @@ export class InventoryLot {
       });
     }
     this.#reserved -= quantity;
+    this.#touch();
   }
 
   /** Xuất kho phần đã giữ: hàng rời kho thật, `onHand` và `reserved` cùng giảm. */
@@ -136,15 +201,42 @@ export class InventoryLot {
     }
     this.#reserved -= quantity;
     this.#onHand -= quantity;
+    this.#touch();
   }
 
   unblock(): void {
     this.#blocked = false;
     this.#blockReason = null;
+    this.#touch();
   }
 
   block(reason: string): void {
     this.#blockReason = requireNonBlank(reason, 'reason', 'INVALID_LOT');
     this.#blocked = true;
+    this.#touch();
+  }
+
+  /** Bản chụp để lưu trữ. `expiresOn` là bản sao: sửa nó không đụng tới lô. */
+  toSnapshot(): InventoryLotSnapshot {
+    return {
+      id: this.#id,
+      variantId: this.#variantId,
+      lotCode: this.#lotCode,
+      onHand: this.#onHand,
+      reserved: this.#reserved,
+      expiresOn: this.#expiresOn ? new Date(this.#expiresOn.getTime()) : null,
+      blocked: this.#blocked,
+      blockReason: this.#blockReason,
+      version: this.#version,
+    };
+  }
+
+  /** Repository báo đã ghi xong: `version` hiện tại chính là thứ nằm trong DB. */
+  markPersisted(): void {
+    this.#persistedVersion = this.#version;
+  }
+
+  #touch(): void {
+    this.#version += 1;
   }
 }

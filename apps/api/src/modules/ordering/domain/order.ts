@@ -1,7 +1,7 @@
 import { DomainError } from '../../shared/domain/domain-error';
 import { requireNonBlank, requireState } from '../../shared/domain/guards';
 import { CurrencyCode, Money } from '../../shared/domain/money';
-import { Address } from './address';
+import { Address, AddressDto } from './address';
 import { OrderLine } from './order-line';
 
 export enum OrderStatus {
@@ -24,6 +24,32 @@ export interface QuotedLineProps {
   readonly nameSnapshot: string;
   readonly unitPriceSnapshot: Money;
   readonly quantity: number;
+}
+
+/** Hình dạng lưu trữ của một dòng đơn: tiền là đơn vị nhỏ nhất, không thập phân. */
+export interface OrderLineSnapshot {
+  readonly variantId: string;
+  readonly sku: string;
+  readonly nameSnapshot: string;
+  readonly unitPriceMinorUnits: bigint;
+  readonly quantity: number;
+}
+
+/**
+ * Hình dạng lưu trữ của cả đơn hàng — hợp đồng giữa aggregate và repository.
+ *
+ * Chính aggregate quyết định nó được lưu bằng gì (Information Expert);
+ * repository chỉ dịch snapshot này sang hàng trong bảng, không đọc `#private`.
+ */
+export interface OrderSnapshot {
+  readonly id: string;
+  readonly customerId: string;
+  readonly currency: CurrencyCode;
+  readonly status: OrderStatus;
+  readonly version: number;
+  readonly shippingAddress: AddressDto | null;
+  readonly cancellationReason: string | null;
+  readonly lines: readonly OrderLineSnapshot[];
 }
 
 const EDITABLE: readonly OrderStatus[] = [OrderStatus.Draft];
@@ -50,6 +76,7 @@ export class Order {
   #shippingAddress: Address | null;
   #cancellationReason: string | null;
   #version: number;
+  #persistedVersion: number | null;
 
   private constructor(props: DraftOrderProps) {
     this.#id = props.id;
@@ -60,12 +87,48 @@ export class Order {
     this.#shippingAddress = null;
     this.#cancellationReason = null;
     this.#version = 0;
+    this.#persistedVersion = null;
   }
 
   static draft(props: DraftOrderProps): Order {
     const id = requireNonBlank(props.id, 'id', 'INVALID_ORDER');
     const customerId = requireNonBlank(props.customerId, 'customerId', 'INVALID_ORDER');
     return new Order({ id, customerId, currency: props.currency });
+  }
+
+  /**
+   * Dựng lại đơn đã lưu. **Chỉ repository được gọi** — đây là đường duy nhất
+   * đặt thẳng trạng thái mà không đi qua máy trạng thái, nên nó chỉ nhận đúng
+   * hình dạng `OrderSnapshot` do chính `toSnapshot()` sinh ra.
+   */
+  static rehydrate(snapshot: OrderSnapshot): Order {
+    const order = new Order({
+      id: requireNonBlank(snapshot.id, 'id', 'INVALID_ORDER'),
+      customerId: requireNonBlank(snapshot.customerId, 'customerId', 'INVALID_ORDER'),
+      currency: snapshot.currency,
+    });
+
+    for (const line of snapshot.lines) {
+      order.#lines.push(
+        OrderLine.create({
+          variantId: line.variantId,
+          sku: line.sku,
+          nameSnapshot: line.nameSnapshot,
+          unitPriceSnapshot: Money.fromMinorUnits(line.unitPriceMinorUnits, snapshot.currency),
+          quantity: line.quantity,
+        }),
+      );
+    }
+
+    order.#status = snapshot.status;
+    order.#shippingAddress = snapshot.shippingAddress
+      ? Address.create(snapshot.shippingAddress)
+      : null;
+    order.#cancellationReason = snapshot.cancellationReason;
+    order.#version = snapshot.version;
+    order.#persistedVersion = snapshot.version;
+
+    return order;
   }
 
   get id(): string {
@@ -86,6 +149,15 @@ export class Order {
 
   get version(): number {
     return this.#version;
+  }
+
+  /**
+   * Phiên bản đang nằm trong DB theo hiểu biết của thể hiện này — `null` nếu
+   * đơn chưa từng được lưu. Đây là vế `WHERE version = ?` của optimistic lock:
+   * nó đứng yên khi đơn đổi, chỉ đuổi kịp `version` sau khi ghi thành công.
+   */
+  get persistedVersion(): number | null {
+    return this.#persistedVersion;
   }
 
   get cancellationReason(): string | null {
@@ -184,6 +256,33 @@ export class Order {
     this.#cancellationReason = requireNonBlank(reason, 'reason', 'INVALID_ORDER');
     this.#status = OrderStatus.Cancelled;
     this.#touch();
+  }
+
+  /** Bản chụp để lưu trữ. Không trả tham chiếu nội bộ: mảng dòng bị đông cứng. */
+  toSnapshot(): OrderSnapshot {
+    return {
+      id: this.#id,
+      customerId: this.#customerId,
+      currency: this.#currency,
+      status: this.#status,
+      version: this.#version,
+      shippingAddress: this.#shippingAddress?.toJSON() ?? null,
+      cancellationReason: this.#cancellationReason,
+      lines: Object.freeze(
+        this.#lines.map((line) => ({
+          variantId: line.variantId,
+          sku: line.sku,
+          nameSnapshot: line.nameSnapshot,
+          unitPriceMinorUnits: line.unitPriceSnapshot.toMinorUnits(),
+          quantity: line.quantity,
+        })),
+      ),
+    };
+  }
+
+  /** Repository báo đã ghi xong: từ giờ `version` hiện tại chính là thứ nằm trong DB. */
+  markPersisted(): void {
+    this.#persistedVersion = this.#version;
   }
 
   #requireLine(variantId: string): OrderLine {

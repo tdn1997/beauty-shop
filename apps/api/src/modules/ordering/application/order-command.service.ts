@@ -50,7 +50,7 @@ export class OrderCommandService {
         customerId: command.customerId,
         currency: command.currency,
       });
-      await this.#orders.save(order);
+      return this.#orders.save(order);
     });
   }
 
@@ -89,14 +89,13 @@ export class OrderCommandService {
 
     return this.#attempt(async () => {
       await change(order);
-      await this.#orders.save(order);
+      return this.#orders.save(order);
     });
   }
 
-  async #attempt(action: () => Promise<void>): Promise<Result<void>> {
+  async #attempt(action: () => Promise<Result<void>>): Promise<Result<void>> {
     try {
-      await action();
-      return Result.ok(undefined);
+      return await action();
     } catch (error) {
       // Chỉ lỗi nghiệp vụ mới thành Result; lỗi hạ tầng phải nổi lên.
       if (error instanceof DomainError) return Result.err(error);

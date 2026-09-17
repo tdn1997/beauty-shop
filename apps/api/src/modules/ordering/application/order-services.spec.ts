@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { DomainError } from '../../shared/domain/domain-error';
+import { Result } from '../../shared/domain/result';
 import { Order, OrderStatus } from '../domain/order';
 import { InMemoryOrderRepository } from '../infrastructure/in-memory-order.repository';
 import { OrderCommandService } from './order-command.service';
@@ -35,7 +37,7 @@ class SaveAlwaysFails implements OrderRepository {
     return this.#inner.findById(id);
   }
 
-  async save(): Promise<void> {
+  async save(): Promise<Result<void>> {
     throw new Error('connection lost');
   }
 }
@@ -277,5 +279,55 @@ describe('OrderQueryService - read side', () => {
 
     // assert
     expect(dto).toBeNull();
+  });
+});
+
+/**
+ * Kho hàng giả luôn thua cuộc đua optimistic lock.
+ * Khác `SaveAlwaysFails`: đây LÀ kết quả nghiệp vụ dự kiến, không phải sự cố hạ tầng —
+ * nên nó phải về bằng `Result`, không phải ném ra ngoài.
+ */
+class SaveAlwaysConflicts implements OrderRepository {
+  readonly #inner: OrderRepository;
+
+  constructor(inner: OrderRepository) {
+    this.#inner = inner;
+  }
+
+  async findById(id: string): Promise<Order | null> {
+    return this.#inner.findById(id);
+  }
+
+  async save(): Promise<Result<void>> {
+    return Result.err(
+      new DomainError('CONCURRENT_MODIFICATION', 'Đơn đã bị người khác sửa', {
+        orderId: 'ord_1',
+      }),
+    );
+  }
+}
+
+describe('OrderCommandService - concurrency', () => {
+  let ctx: ReturnType<typeof setup>;
+
+  beforeEach(() => {
+    ctx = setup();
+  });
+
+  it('should report a lost lock race as an expected business result', async () => {
+    // arrange
+    const { repository, commands, queries } = ctx;
+    await draftWithLineAndAddress(commands);
+    const contended = new OrderCommandService(new SaveAlwaysConflicts(repository));
+
+    // confirm
+    expect((await queries.findById('ord_1'))?.status).toBe(OrderStatus.Draft);
+
+    // act
+    const result = await contended.confirm({ orderId: 'ord_1' });
+
+    // assert
+    expect(result.isErr()).toBe(true);
+    expect(result.errorOrNull()?.code).toBe('CONCURRENT_MODIFICATION');
   });
 });
