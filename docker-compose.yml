@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: beautyshop-db
+    environment:
+      POSTGRES_USER: beautyshop
+      POSTGRES_PASSWORD: beautyshop
+      POSTGRES_DB: beautyshop
+    ports:
+      - "5433:5432"
+    volumes:
+      - beautyshop-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beautyshop"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  beautyshop-pgdata:
