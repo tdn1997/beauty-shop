@@ -3,6 +3,10 @@
 Stack: Next.js (web) · NestJS (API) · PostgreSQL
 Trọng tâm: thuộc tính, phương thức, Encapsulation, GRASP.
 
+> **Tiến độ**: ô `[x]` là đã làm xong và có test giữ.
+> Chi tiết trạng thái: `README.md` · Quy ước code: `CLAUDE.md`.
+> Giai đoạn 1 và 2 xong; Giai đoạn 3 xong phần domain, còn phần DB (Prisma).
+
 ---
 
 ## 0. Nguyên tắc xuyên suốt
@@ -26,12 +30,12 @@ apps/api/src/modules/
 
 Mục tiêu: dựng các lớp giá trị và entity đúng kiểu, chưa cần DB.
 
-- [ ] `shared/Money` — private readonly amount + currency, factory từ string, `add/times`, chặn khác currency.
-- [ ] `catalog/Product`, `ProductVariant` — tách định danh (`id`, `sku` readonly) khỏi mô tả (`name`, `status`).
-- [ ] `ordering/OrderLine` — `unitPriceSnapshot` + `quantity`, `subtotal()` là giá trị suy dẫn.
-- [ ] `ordering/Address` — value object bất biến, validate đủ trường trong constructor.
-- [ ] `inventory/InventoryLot` — `onHand`, `reserved`, `expiresOn`, `blocked`.
-- [ ] `shared/Clock` — inject được, không gọi `new Date()` trong domain.
+- [x] `shared/Money` — private readonly amount + currency, factory từ string, `add/times`, chặn khác currency.
+- [x] `catalog/Product`, `ProductVariant` — tách định danh (`id`, `sku` readonly) khỏi mô tả (`name`, `status`).
+- [x] `ordering/OrderLine` — `unitPriceSnapshot` + `quantity`, `subtotal()` là giá trị suy dẫn.
+- [x] `ordering/Address` — value object bất biến, validate đủ trường trong constructor.
+- [x] `inventory/InventoryLot` — `onHand`, `reserved`, `expiresOn`, `blocked`.
+- [x] `shared/Clock` — inject được, không gọi `new Date()` trong domain.
 
 Quy ước áp dụng:
 - Thuộc tính ổn định → `readonly`; thuộc tính đổi được → `#private` + method đổi.
@@ -43,22 +47,22 @@ Quy ước áp dụng:
 
 ## Giai đoạn 2 — Phương thức & hợp đồng (tuần 1–2)
 
-- [ ] Đặt tên theo ý định: `changeQuantity`, `reserve`, `confirm`, `cancel`, `dispatch` — **không** có `setStatus`, `setReserved`, `setQuantity`.
-- [ ] Mỗi method ghi rõ tiền điều kiện ở đầu thân hàm (`requireState`, `requireNonBlank`).
-- [ ] Tách lệnh / truy vấn: `OrderQueryService` trả DTO, `OrderCommandService` mới được đổi trạng thái.
-- [ ] Phân loại lỗi: `DomainError` (mã ổn định: `OUT_OF_STOCK`, `INVALID_TRANSITION`) vs lỗi hạ tầng.
-- [ ] `Result<T>` cho kết quả nghiệp vụ dự kiến; `throw` chỉ cho vi phạm bất biến.
-- [ ] Interceptor `@Idempotent()` — đọc `Idempotency-Key`, hash body, so `request_hash`.
+- [x] Đặt tên theo ý định: `changeQuantity`, `reserve`, `confirm`, `cancel`, `dispatch` — **không** có `setStatus`, `setReserved`, `setQuantity`.
+- [x] Mỗi method ghi rõ tiền điều kiện ở đầu thân hàm (`requireState`, `requireNonBlank`).
+- [x] Tách lệnh / truy vấn: `OrderQueryService` trả DTO, `OrderCommandService` mới được đổi trạng thái.
+- [x] Phân loại lỗi: `DomainError` (mã ổn định: `OUT_OF_STOCK`, `INVALID_TRANSITION`) vs lỗi hạ tầng.
+- [x] `Result<T>` cho kết quả nghiệp vụ dự kiến; `throw` chỉ cho vi phạm bất biến.
+- [x] Interceptor `@Idempotent()` — đọc `Idempotency-Key`, hash body, so `request_hash`.
 
 ---
 
 ## Giai đoạn 3 — Encapsulation (tuần 2)
 
-- [ ] `Order.lines` là `#private`; getter trả `Object.freeze([...])` hoặc DTO.
-- [ ] `InventoryLot.reserve(qty)` là cách duy nhất tăng `reserved`; không expose setter.
-- [ ] Constructor private + static factory (`Order.draft()`, `Order.fromQuote()`).
+- [x] `Order.lines` là `#private`; getter trả `Object.freeze([...])` hoặc DTO.
+- [x] `InventoryLot.reserve(qty)` là cách duy nhất tăng `reserved`; không expose setter.
+- [x] Constructor private + static factory (`Order.draft()`, `Order.fromQuote()`).
 - [ ] Không trả entity Prisma ra API — mapper `toDto()` ở tầng `api/`.
-- [ ] Repository interface khai báo trong `application/`, implement trong `infrastructure/`.
+- [x] Repository interface khai báo trong `application/`, implement trong `infrastructure/`.
 - [ ] Bất biến tầng DB (đóng gói ở mức lưu trữ):
   - `CHECK (reserved >= 0 AND reserved <= on_hand)`
   - `CHECK (quantity > 0)`, `CHECK (unit_price >= 0)`
