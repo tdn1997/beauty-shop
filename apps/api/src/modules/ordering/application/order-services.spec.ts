@@ -25,7 +25,6 @@ const serum = {
   quantity: 2,
 };
 
-/** Kho hàng giả mô phỏng lỗi hạ tầng — lỗi này KHÔNG phải kết quả nghiệp vụ dự kiến. */
 class SaveAlwaysFails implements OrderRepository {
   readonly #inner: OrderRepository;
 
@@ -35,6 +34,10 @@ class SaveAlwaysFails implements OrderRepository {
 
   async findById(id: string): Promise<Order | null> {
     return this.#inner.findById(id);
+  }
+
+  async list(page: number, limit: number) {
+    return this.#inner.list(page, limit);
   }
 
   async save(): Promise<Result<void>> {
@@ -63,36 +66,22 @@ describe('OrderCommandService - state changes', () => {
   });
 
   it('should create a draft order that the query side can read back', async () => {
-    // arrange
     const { commands, queries } = ctx;
-
-    // confirm
     expect(await queries.findById('ord_1')).toBeNull();
-
-    // act
     const result = await commands.createDraft({
       orderId: 'ord_1',
       customerId: 'cus_1',
       currency: 'VND',
     });
-
-    // assert
     expect(result.isOk()).toBe(true);
     expect((await queries.findById('ord_1'))?.status).toBe(OrderStatus.Draft);
   });
 
   it('should confirm an order that has lines and an address', async () => {
-    // arrange
     const { commands, queries } = ctx;
     await draftWithLineAndAddress(commands);
-
-    // confirm
     expect((await queries.findById('ord_1'))?.status).toBe(OrderStatus.Draft);
-
-    // act
     const result = await commands.confirm({ orderId: 'ord_1' });
-
-    // assert
     expect(result.isOk()).toBe(true);
     expect((await queries.findById('ord_1'))?.status).toBe(OrderStatus.Confirmed);
   });
@@ -106,88 +95,53 @@ describe('OrderCommandService - expected failures come back as Result', () => {
   });
 
   it('should return a failure instead of throwing when the order does not exist', async () => {
-    // arrange
     const { commands } = ctx;
-
-    // confirm
     expect(await ctx.queries.findById('ord_missing')).toBeNull();
-
-    // act
     const result = await commands.confirm({ orderId: 'ord_missing' });
-
-    // assert
     expect(result.isErr()).toBe(true);
     expect(result.errorOrNull()?.code).toBe('ORDER_NOT_FOUND');
   });
 
   it('should return a failure when confirming an order with no lines', async () => {
-    // arrange
     const { commands } = ctx;
     await commands.createDraft({ orderId: 'ord_1', customerId: 'cus_1', currency: 'VND' });
     await commands.setShippingAddress({ orderId: 'ord_1', address: addressProps });
-
-    // confirm
     expect((await ctx.queries.findById('ord_1'))?.lines).toEqual([]);
-
-    // act
     const result = await commands.confirm({ orderId: 'ord_1' });
-
-    // assert
     expect(result.isErr()).toBe(true);
     expect(result.errorOrNull()?.code).toBe('EMPTY_ORDER');
   });
 
   it('should return a failure when the transition is not allowed', async () => {
-    // arrange
     const { commands } = ctx;
     await draftWithLineAndAddress(commands);
     await commands.confirm({ orderId: 'ord_1' });
-
-    // confirm
     expect((await ctx.queries.findById('ord_1'))?.status).toBe(OrderStatus.Confirmed);
-
-    // act
     const result = await commands.confirm({ orderId: 'ord_1' });
-
-    // assert
     expect(result.isErr()).toBe(true);
     expect(result.errorOrNull()?.code).toBe('INVALID_TRANSITION');
   });
 
   it('should leave the order untouched when a command fails', async () => {
-    // arrange
     const { commands, queries } = ctx;
     await draftWithLineAndAddress(commands);
     const before = await queries.findById('ord_1');
-
-    // confirm
     expect(before?.version).toBeGreaterThan(0);
-
-    // act
     const result = await commands.addLine({
       orderId: 'ord_1',
       ...serum,
       unitPrice: '399000',
     });
-
-    // assert
     expect(result.errorOrNull()?.code).toBe('PRICE_CHANGED');
     expect((await queries.findById('ord_1'))?.version).toBe(before?.version);
   });
 
   it('should let an infrastructure failure propagate instead of swallowing it', async () => {
-    // arrange
     const { repository, commands } = ctx;
     await draftWithLineAndAddress(commands);
     const flaky = new OrderCommandService(new SaveAlwaysFails(repository));
-
-    // confirm
     expect((await ctx.queries.findById('ord_1'))?.status).toBe(OrderStatus.Draft);
-
-    // act
     const act = async () => flaky.confirm({ orderId: 'ord_1' });
-
-    // assert
     await expect(act()).rejects.toThrow('connection lost');
   });
 });
@@ -200,17 +154,10 @@ describe('OrderQueryService - read side', () => {
   });
 
   it('should return a plain DTO rather than the aggregate', async () => {
-    // arrange
     const { commands, queries } = ctx;
     await draftWithLineAndAddress(commands);
-
-    // confirm
     expect((await queries.findById('ord_1'))?.id).toBe('ord_1');
-
-    // act
     const dto = await queries.findById('ord_1');
-
-    // assert
     expect(dto).toEqual({
       id: 'ord_1',
       customerId: 'cus_1',
@@ -234,59 +181,33 @@ describe('OrderQueryService - read side', () => {
   });
 
   it('should hand out a DTO that cannot be used to change the order', async () => {
-    // arrange
     const { commands, queries } = ctx;
     await draftWithLineAndAddress(commands);
     const dto = await queries.findById('ord_1');
-
-    // confirm
     expect(dto?.lines).toHaveLength(1);
-
-    // act
     const methods = Object.values(dto ?? {}).filter((value) => typeof value === 'function');
-
-    // assert
     expect(methods).toEqual([]);
     expect(Object.getPrototypeOf(dto)).toBe(Object.prototype);
   });
 
   it('should expose only read operations', () => {
-    // arrange
     const { queries } = ctx;
-
-    // confirm
     expect(queries).toBeInstanceOf(OrderQueryService);
-
-    // act
     const methods = Object.getOwnPropertyNames(OrderQueryService.prototype).filter(
       (name) => name !== 'constructor',
     );
-
-    // assert
     expect(methods.length).toBeGreaterThan(0);
     expect(methods.every((name) => /^(find|get|list|count)/.test(name))).toBe(true);
   });
 
   it('should return null for an unknown order rather than throwing', async () => {
-    // arrange
     const { queries } = ctx;
-
-    // confirm
     expect(queries).toBeInstanceOf(OrderQueryService);
-
-    // act
     const dto = await queries.findById('ord_missing');
-
-    // assert
     expect(dto).toBeNull();
   });
 });
 
-/**
- * Kho hàng giả luôn thua cuộc đua optimistic lock.
- * Khác `SaveAlwaysFails`: đây LÀ kết quả nghiệp vụ dự kiến, không phải sự cố hạ tầng —
- * nên nó phải về bằng `Result`, không phải ném ra ngoài.
- */
 class SaveAlwaysConflicts implements OrderRepository {
   readonly #inner: OrderRepository;
 
@@ -296,6 +217,10 @@ class SaveAlwaysConflicts implements OrderRepository {
 
   async findById(id: string): Promise<Order | null> {
     return this.#inner.findById(id);
+  }
+
+  async list(page: number, limit: number) {
+    return this.#inner.list(page, limit);
   }
 
   async save(): Promise<Result<void>> {
@@ -315,18 +240,11 @@ describe('OrderCommandService - concurrency', () => {
   });
 
   it('should report a lost lock race as an expected business result', async () => {
-    // arrange
     const { repository, commands, queries } = ctx;
     await draftWithLineAndAddress(commands);
     const contended = new OrderCommandService(new SaveAlwaysConflicts(repository));
-
-    // confirm
     expect((await queries.findById('ord_1'))?.status).toBe(OrderStatus.Draft);
-
-    // act
     const result = await contended.confirm({ orderId: 'ord_1' });
-
-    // assert
     expect(result.isErr()).toBe(true);
     expect(result.errorOrNull()?.code).toBe('CONCURRENT_MODIFICATION');
   });

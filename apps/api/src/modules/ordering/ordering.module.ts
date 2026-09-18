@@ -1,4 +1,23 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
+import { randomUUID } from 'node:crypto';
+import { InventoryModule, INVENTORY_REPOSITORY } from '../inventory/inventory.module';
+import { InventoryRepository } from '../inventory/application/inventory-repository';
+import { NotificationModule, OUTBOX_REPOSITORY } from '../notification/notification.module';
+import { OutboxRepository } from '../notification/application/outbox-repository';
+import { PaymentModule, PAYMENT_GATEWAY_REGISTRY } from '../payment/payment.module';
+import { PaymentGatewayRegistry } from '../payment/application/payment-gateway.registry';
+import { PricingModule } from '../pricing/pricing.module';
+import { QuoteService } from '../pricing/application/quote.service';
+import { Clock } from '../shared/domain/clock';
+import { CLOCK } from '../shared/shared.module';
+import { NestHttpExceptionFilter } from '../shared/api/domain-error.filter';
+import { PrismaCheckoutReplay, CheckoutReplayClient } from './infrastructure/prisma-checkout-replay';
+import { CheckoutService } from './application/checkout.service';
+import { CheckoutController } from './api/checkout.controller';
+import { OrderController } from './api/order.controller';
+import { InMemoryAddressBook } from './infrastructure/in-memory-address-book';
+import { PrismaInventoryAllocation, AllocationClient } from './infrastructure/prisma-inventory-allocation';
 
 import { PrismaTransactionManager } from '../shared/infrastructure/prisma-transaction-manager';
 import { PrismaTransactionClient } from '../shared/infrastructure/prisma.service';
@@ -10,20 +29,27 @@ import { OrderPrismaClient, PrismaOrderRepository } from './infrastructure/prism
 
 export const ORDER_REPOSITORY = Symbol('OrderRepository');
 
-/**
- * Tầng application chỉ biết cổng `OrderRepository`; module này quyết định cài
- * đặt nào được cắm vào. Đổi `PrismaOrderRepository` sang bản khác là sửa đúng
- * một dòng ở đây — `OrderCommandService` và `OrderQueryService` không đổi.
- */
 @Module({
-  imports: [SharedModule],
+  imports: [SharedModule, InventoryModule, NotificationModule, PaymentModule, PricingModule],
+  controllers: [CheckoutController, OrderController],
   providers: [
+    {
+      provide: CheckoutService,
+      inject: [TRANSACTIONS, CLOCK, ORDER_REPOSITORY, INVENTORY_REPOSITORY, OUTBOX_REPOSITORY, QuoteService, PAYMENT_GATEWAY_REGISTRY],
+      useFactory: (transactions: PrismaTransactionManager<PrismaTransactionClient>, clock: Clock, orders: OrderRepository, inventory: InventoryRepository, outbox: OutboxRepository, quotes: QuoteService, gateways: PaymentGatewayRegistry) => new CheckoutService({
+        transactions, clock, orders, outbox, quotes, gateways,
+        addresses: new InMemoryAddressBook(),
+        inventory: new PrismaInventoryAllocation({ current: () => transactions.current() as unknown as AllocationClient }, inventory, clock),
+        replay: new PrismaCheckoutReplay({ current: () => transactions.current() as unknown as CheckoutReplayClient }),
+        nextId: randomUUID,
+        returnUrl: process.env.PAYMENT_RETURN_URL ?? 'http://localhost:3000/checkout/payment',
+      }),
+    },
     {
       provide: ORDER_REPOSITORY,
       inject: [TRANSACTIONS],
       useFactory: (transactions: PrismaTransactionManager<PrismaTransactionClient>) =>
         new PrismaOrderRepository({
-          // Ép kiểu giới hạn trong composition root: xem chú thích ở SharedModule.
           current: () => transactions.current() as unknown as OrderPrismaClient,
         }),
     },
@@ -36,6 +62,10 @@ export const ORDER_REPOSITORY = Symbol('OrderRepository');
       provide: OrderQueryService,
       inject: [ORDER_REPOSITORY],
       useFactory: (orders: OrderRepository) => new OrderQueryService(orders),
+    },
+    {
+      provide: APP_FILTER,
+      useClass: NestHttpExceptionFilter,
     },
   ],
   exports: [OrderCommandService, OrderQueryService],

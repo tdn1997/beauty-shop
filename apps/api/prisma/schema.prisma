@@ -28,6 +28,32 @@ enum IdempotencyStatus {
   @@map("idempotency_status")
 }
 
+enum OutboxStatus {
+  PENDING
+  SENT
+  FAILED
+
+  @@map("outbox_status")
+}
+
+model OutboxEvent {
+  id          String       @id @map("id")
+  eventType   String       @map("event_type")
+  aggregateId String       @map("aggregate_id")
+  payload     Json         @map("payload")
+  status      OutboxStatus @default(PENDING) @map("status")
+  attempts    Int          @default(0) @map("attempts")
+  lastError   String?      @map("last_error")
+  occurredAt  DateTime     @map("occurred_at")
+  /// Optimistic lock: mọi lần ghi đều kèm `WHERE version = <phiên bản đã đọc>`.
+  version     Int          @default(0) @map("version")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([status, occurredAt])
+  @@map("outbox_event")
+}
+
 model SalesOrder {
   id                 String      @id
   customerId         String      @map("customer_id")
@@ -36,6 +62,8 @@ model SalesOrder {
   /// Optimistic lock: mọi lần ghi đều kèm `WHERE version = <phiên bản đã đọc>`.
   version            Int         @default(0)
   cancellationReason String?     @map("cancellation_reason")
+  discount           BigInt      @default(0)
+  shippingFee        BigInt      @default(0) @map("shipping_fee")
 
   // Địa chỉ giao là **bản chụp** tại thời điểm đặt, không phải khoá ngoại sang
   // sổ địa chỉ của khách: khách sửa địa chỉ sau này không được làm đổi đơn cũ.
@@ -92,6 +120,18 @@ model InventoryLot {
   @@unique([variantId, lotCode])
   @@index([variantId])
   @@map("inventory_lot")
+}
+
+model CheckoutReplay {
+  customerId  String            @map("customer_id")
+  key         String
+  requestHash String            @map("request_hash")
+  status      IdempotencyStatus
+  response    Json?
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@id([customerId, key])
+  @@map("checkout_replay")
 }
 
 model IdempotencyRecord {

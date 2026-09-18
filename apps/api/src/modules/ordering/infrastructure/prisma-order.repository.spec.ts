@@ -11,6 +11,19 @@ import {
   SalesOrderWriteRow,
 } from './prisma-order.repository';
 
+it('should persist quoted adjustments and derive the same grand total after reload', async () => {
+  const client = new FakeOrderClient();
+  const repository = new PrismaOrderRepository({ current: () => client });
+  const order = Order.draft({ id: 'adjusted', customerId: 'customer', currency: 'VND' });
+  order.addQuotedLine(serum);
+  order.applyQuotedAdjustments(Money.parse('10000', 'VND'), Money.parse('20000', 'VND'));
+  expect(await repository.findById(order.id)).toBeNull();
+  await repository.save(order);
+  const loaded = await repository.findById(order.id);
+  expect(loaded!.grandTotal().equals(order.grandTotal())).toBe(true);
+  expect(loaded!.toSnapshot()).toEqual(order.toSnapshot());
+});
+
 const addressProps = {
   recipientName: 'Nguyễn Văn A',
   phone: '0901234567',
@@ -36,24 +49,13 @@ const mask = {
   quantity: 1,
 };
 
-/**
- * Kho giả đứng thay Postgres.
- *
- * Nó **tôn trọng vế `WHERE version = ?`**: `updateMany` chỉ ghi khi phiên bản
- * trong hàng khớp với phiên bản repository đọc lúc trước. Nhờ vậy test bên dưới
- * kiểm được đúng thứ cần kiểm — repository có gắn đúng điều kiện phiên bản
- * và có dịch "0 hàng khớp" thành mã lỗi ổn định hay không.
- *
- * Nó KHÔNG mô phỏng transaction hay cô lập (isolation). Việc hai transaction
- * thật giành nhau một hàng chỉ chứng minh được bằng Postgres — Giai đoạn 7.
- */
 class FakeOrderClient implements OrderPrismaClient {
   readonly rows = new Map<string, SalesOrderWriteRow>();
   readonly lines = new Map<string, OrderLineWriteRow[]>();
   failWith: Error | null = null;
 
   readonly salesOrder = {
-    findUnique: async (args: { where: { id: string } }): Promise<SalesOrderRow | null> => {
+    findUnique: async (args: { where: { id: string }; include?: { lines?: boolean } }): Promise<SalesOrderRow | null> => {
       this.#maybeFail();
       const row = this.rows.get(args.where.id);
       if (!row) return null;
@@ -77,6 +79,15 @@ class FakeOrderClient implements OrderPrismaClient {
       if (!row || row.version !== args.where.version) return { count: 0 };
       this.rows.set(args.where.id, args.data);
       return { count: 1 };
+    },
+    findMany: async (args: { skip: number; take: number; orderBy: { id: string } }): Promise<SalesOrderRow[]> => {
+      this.#maybeFail();
+      const allRows = [...this.rows.values()].sort((a, b) => a.id.localeCompare(b.id));
+      return allRows.slice(args.skip, args.skip + args.take).map((row) => ({ ...row, lines: this.lines.get(row.id) ?? [] }));
+    },
+    count: async (): Promise<number> => {
+      this.#maybeFail();
+      return this.rows.size;
     },
   };
 
@@ -123,65 +134,37 @@ describe('PrismaOrderRepository - reading', () => {
   });
 
   it('should return null when no row matches', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.rows.size).toBe(0);
-
-    // act
     const found = await repository.findById('ord_missing');
-
-    // assert
     expect(found).toBeNull();
   });
 
   it('should rebuild the aggregate rather than hand back the stored row', async () => {
-    // arrange
     const { repository } = ctx;
     await repository.save(confirmedOrder());
-
-    // confirm
     expect(ctx.client.rows.size).toBe(1);
-
-    // act
     const found = await repository.findById('ord_1');
-
-    // assert
     expect(found).toBeInstanceOf(Order);
     expect(found?.status).toBe(OrderStatus.Confirmed);
     expect(found?.shippingAddress?.toJSON().recipientName).toBe('Nguyễn Văn A');
   });
 
   it('should read back exactly the order it wrote', async () => {
-    // arrange
     const { repository } = ctx;
     const order = confirmedOrder();
     await repository.save(order);
-
-    // confirm
     expect(order.lines).toHaveLength(1);
-
-    // act
     const found = await repository.findById('ord_1');
-
-    // assert
     expect(found?.toSnapshot()).toEqual(order.toSnapshot());
   });
 
   it('should treat the stored version as already persisted', async () => {
-    // arrange
     const { repository } = ctx;
     const order = confirmedOrder();
     await repository.save(order);
-
-    // confirm
     expect(order.version).toBeGreaterThan(0);
-
-    // act
     const found = await repository.findById('ord_1');
-
-    // assert
     expect(found?.persistedVersion).toBe(order.version);
   });
 });
@@ -194,82 +177,47 @@ describe('PrismaOrderRepository - writing', () => {
   });
 
   it('should insert an order that was never stored before', async () => {
-    // arrange
     const { repository, client } = ctx;
     const order = confirmedOrder();
-
-    // confirm
     expect(order.persistedVersion).toBeNull();
-
-    // act
     const result = await repository.save(order);
-
-    // assert
     expect(result.isOk()).toBe(true);
     expect(client.rows.get('ord_1')?.version).toBe(order.version);
   });
 
   it('should mark the order persisted after a successful write', async () => {
-    // arrange
     const { repository } = ctx;
     const order = confirmedOrder();
-
-    // confirm
     expect(order.persistedVersion).toBeNull();
-
-    // act
     await repository.save(order);
-
-    // assert
     expect(order.persistedVersion).toBe(order.version);
   });
 
   it('should store money as minor units rather than a decimal', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(serum.unitPriceSnapshot.toString()).toBe('459000 VND');
-
-    // act
     await repository.save(confirmedOrder());
-
-    // assert
     expect(client.lines.get('ord_1')?.[0]?.unitPrice).toBe(459000n);
   });
 
   it('should replace the stored lines instead of piling new ones on top', async () => {
-    // arrange
     const { repository, client } = ctx;
     const order = Order.draft({ id: 'ord_1', customerId: 'cus_1', currency: 'VND' });
     order.addQuotedLine(serum);
     order.addQuotedLine(mask);
     await repository.save(order);
-
-    // confirm
     expect(client.lines.get('ord_1')).toHaveLength(2);
-
-    // act
     order.removeLine('var_2');
     await repository.save(order);
-
-    // assert
     expect(client.lines.get('ord_1')).toHaveLength(1);
     expect(client.lines.get('ord_1')?.[0]?.variantId).toBe('var_1');
   });
 
   it('should let an infrastructure failure surface instead of turning it into a result', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.failWith = new Error('connection lost');
-
-    // confirm
     expect(client.rows.size).toBe(0);
-
-    // act
     const act = repository.save(confirmedOrder());
-
-    // assert
     await expect(act).rejects.toThrow('connection lost');
   });
 });
@@ -282,46 +230,31 @@ describe('PrismaOrderRepository - optimistic locking', () => {
   });
 
   it('should guard the update with the version it read', async () => {
-    // arrange
     const { repository } = ctx;
     await repository.save(confirmedOrder());
     const reloaded = (await repository.findById('ord_1')) as Order;
     reloaded.markPaid();
-
-    // confirm
     expect(reloaded.version).toBe((reloaded.persistedVersion as number) + 1);
-
-    // act
     const result = await repository.save(reloaded);
-
-    // assert
     expect(result.isOk()).toBe(true);
     expect(ctx.client.rows.get('ord_1')?.status).toBe(OrderStatus.Paid);
   });
 
   it('should refuse to overwrite an order that changed underneath it', async () => {
-    // arrange
     const { repository, client } = ctx;
     await repository.save(confirmedOrder());
     const mine = (await repository.findById('ord_1')) as Order;
     const theirs = (await repository.findById('ord_1')) as Order;
     theirs.markPaid();
     await repository.save(theirs);
-
-    // confirm
     expect(client.rows.get('ord_1')?.status).toBe(OrderStatus.Paid);
-
-    // act
     mine.cancel('Khách đổi ý');
     const result = await repository.save(mine);
-
-    // assert
     expect(result.isErr()).toBe(true);
     expect(result.errorOrNull()?.code).toBe('CONCURRENT_MODIFICATION');
   });
 
   it('should leave the stored row untouched when it loses the race', async () => {
-    // arrange
     const { repository, client } = ctx;
     await repository.save(confirmedOrder());
     const mine = (await repository.findById('ord_1')) as Order;
@@ -329,36 +262,23 @@ describe('PrismaOrderRepository - optimistic locking', () => {
     theirs.markPaid();
     await repository.save(theirs);
     const before = { ...client.rows.get('ord_1') } as SalesOrderWriteRow;
-
-    // confirm
     expect(before.status).toBe(OrderStatus.Paid);
-
-    // act
     mine.cancel('Khách đổi ý');
     await repository.save(mine);
-
-    // assert
     expect(client.rows.get('ord_1')).toEqual(before);
     expect(client.lines.get('ord_1')).toHaveLength(1);
   });
 
   it('should keep the order unpersisted after a lost race so a retry can re-read', async () => {
-    // arrange
     const { repository } = ctx;
     await repository.save(confirmedOrder());
     const mine = (await repository.findById('ord_1')) as Order;
     const theirs = (await repository.findById('ord_1')) as Order;
     theirs.markPaid();
     await repository.save(theirs);
-
-    // confirm
     expect(mine.persistedVersion).toBe(mine.version);
-
-    // act
     mine.cancel('Khách đổi ý');
     await repository.save(mine);
-
-    // assert
     expect(mine.persistedVersion).not.toBe(mine.version);
   });
 });

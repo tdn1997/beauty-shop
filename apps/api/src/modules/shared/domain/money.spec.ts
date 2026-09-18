@@ -164,6 +164,8 @@ describe('Money - arithmetic', () => {
     // assert
     expect(act).toThrow(DomainError);
     expect(act).toThrow(/CURRENCY_MISMATCH/);
+    expect(vnd.toString()).toBe('129000 VND');
+    expect(usd.toString()).toBe('5.00 USD');
   });
 
   it('should multiply by an integer quantity', () => {
@@ -192,6 +194,7 @@ describe('Money - arithmetic', () => {
 
     // assert
     expect(act).toThrow(/INVALID_MULTIPLIER/);
+    expect(unitPrice.toString()).toBe('19.99 USD');
   });
 
   it('should compare equality by amount and currency', () => {
@@ -225,6 +228,269 @@ describe('Money - arithmetic', () => {
 
     // assert
     expect(results).toEqual([false, true]);
+  });
+});
+
+describe('Money - subtraction and comparison', () => {
+  it('should subtract an amount of the same currency', () => {
+    // arrange
+    const basket = Money.parse('459000', 'VND');
+    const discount = Money.parse('50000', 'VND');
+
+    // confirm
+    expect(basket.currency).toBe(discount.currency);
+
+    // act
+    const remaining = basket.subtract(discount);
+
+    // assert
+    expect(remaining.toString()).toBe('409000 VND');
+  });
+
+  it('should allow subtraction to go negative because the caller decides what that means', () => {
+    // arrange
+    const basket = Money.parse('10.00', 'USD');
+    const discount = Money.parse('12.50', 'USD');
+
+    // confirm
+    expect(basket.isNegative()).toBe(false);
+
+    // act
+    const remaining = basket.subtract(discount);
+
+    // assert
+    expect(remaining.toString()).toBe('-2.50 USD');
+    expect(remaining.isNegative()).toBe(true);
+  });
+
+  it('should leave both operands unchanged when subtracting', () => {
+    // arrange
+    const basket = Money.parse('10.00', 'USD');
+    const discount = Money.parse('2.50', 'USD');
+
+    // confirm
+    expect(basket.toString()).toBe('10.00 USD');
+
+    // act
+    basket.subtract(discount);
+
+    // assert
+    expect(basket.toString()).toBe('10.00 USD');
+    expect(discount.toString()).toBe('2.50 USD');
+  });
+
+  it('should refuse to subtract a different currency', () => {
+    // arrange
+    const vnd = Money.parse('129000', 'VND');
+    const usd = Money.parse('5.00', 'USD');
+
+    // confirm
+    expect(vnd.currency).not.toBe(usd.currency);
+
+    // act
+    const act = () => vnd.subtract(usd);
+
+    // assert
+    expect(act).toThrow(DomainError);
+    expect(act).toThrow(/CURRENCY_MISMATCH/);
+    expect(vnd.toString()).toBe('129000 VND');
+    expect(usd.toString()).toBe('5.00 USD');
+  });
+
+  it('should order two amounts as -1, 0 and 1', () => {
+    // arrange
+    const small = Money.parse('10.00', 'USD');
+    const same = Money.parse('10.00', 'USD');
+    const large = Money.parse('10.01', 'USD');
+
+    // confirm
+    expect(small.equals(same)).toBe(true);
+
+    // act
+    const order = [small.compareTo(large), small.compareTo(same), large.compareTo(small)];
+
+    // assert
+    expect(order).toEqual([-1, 0, 1]);
+  });
+
+  it('should refuse to compare a different currency', () => {
+    // arrange
+    const vnd = Money.parse('129000', 'VND');
+    const usd = Money.parse('5.00', 'USD');
+
+    // confirm
+    expect(() => vnd.compareTo(Money.parse('1', 'VND'))).not.toThrow();
+
+    // act
+    const act = () => vnd.compareTo(usd);
+
+    // assert
+    expect(act).toThrow(/CURRENCY_MISMATCH/);
+    expect(vnd.toString()).toBe('129000 VND');
+    expect(usd.toString()).toBe('5.00 USD');
+  });
+
+  it('should keep the smaller of two amounts', () => {
+    // arrange
+    const discount = Money.parse('500000', 'VND');
+    const basket = Money.parse('129000', 'VND');
+
+    // confirm
+    expect(discount.compareTo(basket)).toBe(1);
+
+    // act
+    const capped = discount.min(basket);
+
+    // assert
+    expect(capped.toString()).toBe('129000 VND');
+  });
+
+  it('should keep itself when it is already the smaller amount', () => {
+    // arrange
+    const discount = Money.parse('50000', 'VND');
+    const basket = Money.parse('129000', 'VND');
+
+    // confirm
+    expect(discount.compareTo(basket)).toBe(-1);
+
+    // act
+    const capped = discount.min(basket);
+
+    // assert
+    expect(capped.toString()).toBe('50000 VND');
+  });
+
+  it('should refuse to take the minimum across currencies', () => {
+    // arrange
+    const vnd = Money.parse('129000', 'VND');
+    const usd = Money.parse('5.00', 'USD');
+
+    // confirm
+    expect(vnd.currency).not.toBe(usd.currency);
+
+    // act
+    const act = () => vnd.min(usd);
+
+    // assert
+    expect(act).toThrow(/CURRENCY_MISMATCH/);
+    expect(vnd.toString()).toBe('129000 VND');
+  });
+});
+
+describe('Money - percentage', () => {
+  it('should take a percentage expressed in basis points', () => {
+    // arrange
+    const basket = Money.parse('1000000', 'VND');
+
+    // confirm
+    expect(basket.toMinorUnits()).toBe(1000000n);
+
+    // act
+    const cut = basket.percentage(1250);
+
+    // assert
+    expect(cut.toString()).toBe('125000 VND');
+  });
+
+  it('should round half-up when the share lands exactly on a half unit', () => {
+    // arrange
+    const basket = Money.parse('1', 'VND');
+
+    // confirm
+    expect(basket.toMinorUnits()).toBe(1n);
+
+    // act
+    const cut = basket.percentage(5000);
+
+    // assert
+    expect(cut.toMinorUnits()).toBe(1n);
+  });
+
+  it('should round a negative amount half-up on its magnitude', () => {
+    // arrange
+    const owed = Money.parse('-1', 'VND');
+
+    // confirm
+    expect(owed.isNegative()).toBe(true);
+
+    // act
+    const cut = owed.percentage(5000);
+
+    // assert
+    expect(cut.toMinorUnits()).toBe(-1n);
+  });
+
+  it('should round down when the share stays below the half unit', () => {
+    // arrange
+    const basket = Money.parse('1', 'VND');
+
+    // confirm
+    expect(basket.toMinorUnits()).toBe(1n);
+
+    // act
+    const cut = basket.percentage(4999);
+
+    // assert
+    expect(cut.toMinorUnits()).toBe(0n);
+  });
+
+  it('should return zero for a zero rate', () => {
+    // arrange
+    const basket = Money.parse('459000', 'VND');
+
+    // confirm
+    expect(basket.toMinorUnits()).toBe(459000n);
+
+    // act
+    const cut = basket.percentage(0);
+
+    // assert
+    expect(cut.equals(Money.zero('VND'))).toBe(true);
+  });
+
+  it('should leave the source amount unchanged', () => {
+    // arrange
+    const basket = Money.parse('459000', 'VND');
+
+    // confirm
+    expect(basket.toString()).toBe('459000 VND');
+
+    // act
+    basket.percentage(1250);
+
+    // assert
+    expect(basket.toString()).toBe('459000 VND');
+  });
+
+  it('should refuse a rate that is not a whole number of basis points', () => {
+    // arrange
+    const basket = Money.parse('459000', 'VND');
+
+    // confirm
+    expect(() => basket.percentage(1250)).not.toThrow();
+
+    // act
+    const act = () => basket.percentage(12.5);
+
+    // assert
+    expect(act).toThrow(DomainError);
+    expect(act).toThrow(/INVALID_BASIS_POINTS/);
+    expect(basket.toString()).toBe('459000 VND');
+  });
+
+  it('should refuse a negative rate', () => {
+    // arrange
+    const basket = Money.parse('459000', 'VND');
+
+    // confirm
+    expect(() => basket.percentage(0)).not.toThrow();
+
+    // act
+    const act = () => basket.percentage(-100);
+
+    // assert
+    expect(act).toThrow(/INVALID_BASIS_POINTS/);
+    expect(basket.toString()).toBe('459000 VND');
   });
 });
 

@@ -28,6 +28,15 @@ function setup() {
 }
 
 describe('DomainErrorFilter - status mapping', () => {
+  it.each([['UNAUTHENTICATED', 401], ['ADDRESS_NOT_OWNED', 403], ['VARIANT_NOT_FOUND', 404], ['CONCURRENT_MODIFICATION', 409], ['LOT_EXPIRED', 409], ['VARIANT_NOT_SELLABLE', 409]])('should map checkout error %s to %s', (code, status) => {
+    const { filter, host, captured } = setup();
+    const error = new DomainError(String(code), 'failure');
+    const before = { code: error.code, message: error.message, details: error.details };
+    expect(captured.status).toBeNull();
+    filter.catch(error, host);
+    expect(captured.status).toBe(status);
+    expect({ code: error.code, message: error.message, details: error.details }).toEqual(before);
+  });
   it('should answer 404 when the resource does not exist', () => {
     // arrange
     const { filter, host, captured } = setup();

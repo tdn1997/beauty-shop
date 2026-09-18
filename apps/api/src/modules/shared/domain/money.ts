@@ -1,4 +1,5 @@
 import { DomainError } from './domain-error';
+import { requireNonNegativeInteger } from './guards';
 
 export type CurrencyCode = 'VND' | 'USD';
 
@@ -8,6 +9,9 @@ const MINOR_UNIT_EXPONENT: Readonly<Record<CurrencyCode, number>> = {
 };
 
 const DECIMAL_PATTERN = /^-?\d+(\.\d+)?$/;
+
+/** 100% = 10000 điểm cơ bản. */
+const BASIS_POINT_SCALE = 10_000n;
 
 export interface MoneyDto {
   readonly amount: string;
@@ -79,6 +83,50 @@ export class Money {
   add(other: Money): Money {
     this.#requireSameCurrency(other, 'cộng');
     return new Money(this.#minorUnits + other.#minorUnits, this.#currency);
+  }
+
+  /**
+   * Trừ tiền. Kết quả **được phép âm**: `Money` không biết phép trừ này là
+   * "còn lại bao nhiêu" hay "hụt bao nhiêu" — chính sách gọi nó mới biết,
+   * nên việc chặn số âm thuộc về nơi đó, không thuộc về value object này.
+   */
+  subtract(other: Money): Money {
+    this.#requireSameCurrency(other, 'trừ');
+    return new Money(this.#minorUnits - other.#minorUnits, this.#currency);
+  }
+
+  /** So sánh cùng tiền tệ: -1 nếu nhỏ hơn, 0 nếu bằng, 1 nếu lớn hơn. */
+  compareTo(other: Money): number {
+    this.#requireSameCurrency(other, 'so sánh');
+    if (this.#minorUnits < other.#minorUnits) return -1;
+    if (this.#minorUnits > other.#minorUnits) return 1;
+    return 0;
+  }
+
+  /** Trần giá trị: nền của bước `min(base)` trong chuỗi tính giảm giá. */
+  min(other: Money): Money {
+    return this.compareTo(other) <= 0 ? this : other;
+  }
+
+  /**
+   * Lấy phần trăm theo **điểm cơ bản** (basis points): 1250 = 12.5%.
+   *
+   * Nhận số nguyên thay vì `0.125` để không có phép chia dấu phẩy động nào
+   * chen vào tiền. Phép tính chạy hoàn toàn bằng bigint.
+   *
+   * Làm tròn: **half-up trên trị tuyệt đối** — phần dư đúng nửa đơn vị nhỏ nhất
+   * thì làm tròn ra xa 0 (0.5 → 1, -0.5 → -1), nên dấu không làm lệch kết quả.
+   */
+  percentage(basisPoints: number): Money {
+    requireNonNegativeInteger(basisPoints, 'basisPoints', 'INVALID_BASIS_POINTS');
+
+    const negative = this.#minorUnits < 0n;
+    const magnitude = negative ? -this.#minorUnits : this.#minorUnits;
+    const scaled = magnitude * BigInt(basisPoints);
+    // Cộng nửa mẫu số trước khi chia lấy nguyên chính là half-up.
+    const rounded = (scaled + BASIS_POINT_SCALE / 2n) / BASIS_POINT_SCALE;
+
+    return new Money(negative ? -rounded : rounded, this.#currency);
   }
 
   times(multiplier: number | bigint): Money {

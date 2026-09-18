@@ -1,22 +1,23 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 
 import { Clock } from '../shared/domain/clock';
+import { NestHttpExceptionFilter } from '../shared/api/domain-error.filter';
 import { PrismaTransactionManager } from '../shared/infrastructure/prisma-transaction-manager';
 import { PrismaTransactionClient } from '../shared/infrastructure/prisma.service';
 import { CLOCK, SharedModule, TRANSACTIONS } from '../shared/shared.module';
+import { InventoryController } from './api/inventory.controller';
+import { InventoryQueryService } from './application/inventory-query.service';
 import {
   InventoryPrismaClient,
   PrismaInventoryRepository,
 } from './infrastructure/prisma-inventory.repository';
 
-export const INVENTORY_REPOSITORY = Symbol('InventoryRepository');
+const INVENTORY_REPOSITORY = Symbol('InventoryRepository');
 
-/**
- * Kho hàng chưa có ca sử dụng riêng — `CheckoutService` (Giai đoạn 4) sẽ là
- * người gọi `reserve`. Module này dựng sẵn cổng để lúc đó chỉ việc inject.
- */
 @Module({
   imports: [SharedModule],
+  controllers: [InventoryController],
   providers: [
     {
       provide: INVENTORY_REPOSITORY,
@@ -26,12 +27,22 @@ export const INVENTORY_REPOSITORY = Symbol('InventoryRepository');
         clock: Clock,
       ) =>
         new PrismaInventoryRepository(
-          // Ép kiểu giới hạn trong composition root: xem chú thích ở SharedModule.
           { current: () => transactions.current() as unknown as InventoryPrismaClient },
           clock,
         ),
     },
+    {
+      provide: InventoryQueryService,
+      inject: [INVENTORY_REPOSITORY],
+      useFactory: (repository: PrismaInventoryRepository) => new InventoryQueryService(repository),
+    },
+    {
+      provide: APP_FILTER,
+      useClass: NestHttpExceptionFilter,
+    },
   ],
-  exports: [INVENTORY_REPOSITORY],
+  exports: [INVENTORY_REPOSITORY, InventoryQueryService],
 })
 export class InventoryModule {}
+
+export { INVENTORY_REPOSITORY };

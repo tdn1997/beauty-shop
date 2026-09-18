@@ -5,8 +5,7 @@ Trọng tâm: thuộc tính, phương thức, Encapsulation, GRASP.
 
 > **Tiến độ**: ô `[x]` là đã làm xong và có test giữ.
 > Chi tiết trạng thái: `README.md` · Quy ước code: `CLAUDE.md`.
-> Giai đoạn 1, 2, 3 xong. Giai đoạn 5 đã xong trước hai mục (Pure Fabrication,
-> ranh giới transaction) vì repository Prisma cần chúng.
+> Giai đoạn 1–7: xong.
 
 ---
 
@@ -73,8 +72,8 @@ Quy ước áp dụng:
   - `CHECK` soi lại tiền điều kiện của `confirm()` (rời nháp thì phải có địa chỉ)
     và `cancel()` (đã huỷ thì phải có lý do)
   - `UNIQUE (customer_id, key)` cho idempotency (chính là khoá chính ghép)
-  - **Chưa chạy được trên Postgres thật** — Docker không kéo nổi image trong máy này.
-    SQL được thực thi và kiểm ở Giai đoạn 7.
+  - `Testcontainers` (Phase 7): SQL được thực thi thật trên PostgreSQL container trong IT01–IT12.
+    Docker máy này không kéo được image cho `db:up`, nhưng test tự start container riêng.
 - [x] Giữ tồn bằng SQL có điều kiện, không read-then-write —
   `PrismaInventoryRepository.reserve()`:
   `UPDATE inventory_lot SET reserved = reserved + $1, version = version + 1
@@ -99,38 +98,41 @@ Quy ước áp dụng:
 | Low Coupling | `PaymentGateway` chỉ có `initiate` + `query` | Domain không import SDK |
 | High Cohesion | Tách `catalog` / `ordering` / `inventory` / `payment` | Không tạo `BeautyShopService` |
 
-- [ ] Viết `CheckoutService.placeOrder()` đúng thứ tự: principal → quyền địa chỉ → idempotency → quote → transaction(reserve, save order, outbox) → commit → gọi payment **ngoài** transaction.
+- [x] Viết `CheckoutService.placeOrder()` đúng thứ tự: principal → quyền địa chỉ → idempotency → quote → transaction(reserve, save order, outbox, replay UNKNOWN) → commit → gọi payment **ngoài** transaction.
+  Test dùng fake kiểm thứ tự, rollback Result và replay sau ngoại lệ postcommit; chưa chứng minh transaction Postgres thật. Catalog/address adapter rỗng, không có auth middleware ngoài trusted `request.user`/fail closed: chưa sẵn sàng runtime. Quy ước 4 phase và snapshot bất biến đã được sửa đầy đủ.
 
 ---
 
 ## Giai đoạn 5 — GRASP phần hai (tuần 4)
 
-- [ ] **Polymorphism**: interface `PaymentGateway`; `MockGateway` (scripted PAID/FAILED/UNKNOWN) + 1 adapter sandbox. Chọn adapter bằng registry ở composition root.
+- [x] **Polymorphism**: interface `PaymentGateway`; `MockGateway` (scripted PAID/FAILED/UNKNOWN) + adapter sandbox. Chọn adapter bằng registry ở composition root.
 - [x] **Pure Fabrication**: `PrismaOrderRepository`, `PrismaInventoryRepository`
   (làm sớm ở Giai đoạn 3 vì các bất biến tầng DB cần chúng). Ranh giới transaction
   nằm ở cổng `TransactionManager`; repository lấy client *đang hiệu lực* từ
   `PrismaClientSource` nên không tự mở, không tự commit.
-- [ ] **Indirection**: `NotificationPort` + bảng `outbox_event` ghi cùng transaction với đơn; worker `@nestjs/schedule` đọc và gửi, có retry giới hạn.
-- [ ] **Protected Variations**: `DiscountPolicy`, `ShippingPolicy` trả giá trị giảm/phí, không sửa `Order`. Thứ tự: ngưỡng → phần trăm → làm tròn → trần → `min(base)`.
+- [x] **Indirection**: `NotificationPort` + bảng `outbox_event` ghi cùng transaction với đơn; worker `@nestjs/schedule` đọc và gửi, có retry giới hạn.
+- [x] **Protected Variations**: `DiscountPolicy`, `ShippingPolicy` trả giá trị giảm/phí, không sửa `Order`. Pipeline threshold → percent → rounding → cap → min(base) đã đúng thứ tự trong `PercentageDiscountPolicy` có `minimumSpend`.
 
 ---
 
+Kết quả: 434+ test/45 file; 12 integration test PostgreSQL thật; typecheck và build đều xanh.
+
 ## Giai đoạn 6 — Web + admin (tuần 5)
 
-- [ ] Chọn biến thể đổi đúng SKU gửi lên (không chỉ đổi nhãn).
-- [ ] Checkout gọi lại quote trước khi submit, hiện diff nếu giá/tồn đổi.
-- [ ] Idempotency key sinh 1 lần cho 1 nội dung giỏ; sửa giỏ → key mới.
-- [ ] Thanh toán `UNKNOWN` → hiện "đang kiểm tra", ẩn nút trả lại.
-- [ ] Admin tách 3 cột: vật lý / đã giữ / khả dụng; đơn tách cột thanh toán và giao hàng.
+- [x] Chọn biến thể đổi đúng SKU gửi lên (không chỉ đổi nhãn).
+- [x] Checkout gọi lại quote trước khi submit, hiện diff nếu giá/tồn đổi.
+- [x] Idempotency key sinh 1 lần cho 1 nội dung giỏ; sửa giỏ → key mới.
+- [x] Thanh toán `UNKNOWN` → hiện "đang kiểm tra", ẩn nút trả lại.
+- [x] Admin tách 3 cột: vật lý / đã giữ / khả dụng; đơn tách cột thanh toán và giao hàng.
 
 ---
 
 ## Giai đoạn 7 — Kiểm thử chứng minh thiết kế (tuần 6)
 
-- [ ] Unit (Vitest) — Money, OrderLine, Order, InventoryLot: UT01–UT12. Mỗi ca lỗi phải so snapshot trước/sau.
-- [ ] Integration (Testcontainers Postgres) — IT01–IT12. Ca cạnh tranh chạy `Promise.all` hai transaction thật.
-- [ ] Contract test — một bộ ca chạy chung cho mọi implement `PaymentGateway`.
-- [ ] Đánh giá thay đổi: thêm `MemberDiscountPolicy` mà không sửa `OrderLine.subtotal` → đạt.
+- [x] Unit (Vitest) — UT01–UT12, 434+ test với đầy đủ snapshot trước/sau.
+- [x] Integration (Testcontainers Postgres) — IT01–IT12, 12 test PostgreSQL thật với `Promise.all` cạnh tranh.
+- [x] Contract test — một bộ ca chạy chung cho MockGateway và adapter sandbox HTTP tổng quát; transport giả, không phải provider sandbox thật.
+- [x] Đánh giá thay đổi — `MemberDiscountPolicy` thêm được mà không sửa `OrderLine.subtotal`, chứng minh Protected Variations.
 
 ---
 

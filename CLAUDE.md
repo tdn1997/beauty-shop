@@ -9,7 +9,7 @@ Kế hoạch đầy đủ 7 giai đoạn: `plans/beautyshop.md`. Trạng thái h
 ## Lệnh
 
 ```bash
-npm test                              # 205 test, Vitest
+npm test                              # 410 test, 41 file, Vitest
 npm run typecheck                     # tsc cho cả 2 workspace
 npm run build --workspace=@beautyshop/api
 npm run db:up                         # Postgres qua Docker, cổng 5433
@@ -101,3 +101,12 @@ Cạnh tranh thật chỉ chứng minh được bằng Testcontainers + Postgres
 **không** viết "test cạnh tranh" trên Map trong bộ nhớ, đó là test xanh giả.
 Client Prisma giả trong test là tất định: nó kiểm *câu lệnh gửi đi* và *cách dịch
 0 hàng bị sửa*, không giả vờ kiểm cô lập giao dịch.
+
+Checkout ghi replay UNKNOWN cùng transaction giữ tồn/đơn/outbox trước khi gọi payment.
+Ownership phải kiểm trước replay; Result lỗi phải làm rollback, không commit một phần.
+Ngoại lệ payment sau commit để nổi lên; lần retry trả UNKNOWN đã lưu, không initiate lại.
+Outbox dùng `@nestjs/schedule`, giao at-least-once, không bảo đảm exactly-once.
+Mock + adapter sandbox HTTP tổng quát đã có contract test; chưa có provider sandbox cụ thể.
+Catalog/address adapter rỗng, chưa có auth middleware (chỉ trusted `request.user`, fail closed):
+không tuyên bố checkout runtime sẵn sàng. Chưa tự reconciliation UNKNOWN hoặc lưu payment
+attempt lifecycle ngoài replay. Audit hiện 15 lỗ hổng (4 moderate, 10 high, 1 critical), chưa auto-fix.

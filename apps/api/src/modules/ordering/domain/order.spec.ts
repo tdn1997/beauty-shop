@@ -467,6 +467,8 @@ describe('Order - persistence snapshot', () => {
       status: OrderStatus.Confirmed,
       version: order.version,
       cancellationReason: null,
+      discountMinorUnits: 0n,
+      shippingFeeMinorUnits: 0n,
       shippingAddress: address.toJSON(),
       lines: [
         {

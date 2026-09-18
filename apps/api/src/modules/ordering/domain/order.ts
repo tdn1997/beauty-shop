@@ -50,6 +50,8 @@ export interface OrderSnapshot {
   readonly shippingAddress: AddressDto | null;
   readonly cancellationReason: string | null;
   readonly lines: readonly OrderLineSnapshot[];
+  readonly discountMinorUnits?: bigint;
+  readonly shippingFeeMinorUnits?: bigint;
 }
 
 const EDITABLE: readonly OrderStatus[] = [OrderStatus.Draft];
@@ -77,6 +79,8 @@ export class Order {
   #cancellationReason: string | null;
   #version: number;
   #persistedVersion: number | null;
+  #discountMinorUnits = 0n;
+  #shippingFeeMinorUnits = 0n;
 
   private constructor(props: DraftOrderProps) {
     this.#id = props.id;
@@ -120,6 +124,8 @@ export class Order {
       );
     }
 
+    order.#discountMinorUnits = snapshot.discountMinorUnits ?? 0n;
+    order.#shippingFeeMinorUnits = snapshot.shippingFeeMinorUnits ?? 0n;
     order.#status = snapshot.status;
     order.#shippingAddress = snapshot.shippingAddress
       ? Address.create(snapshot.shippingAddress)
@@ -223,6 +229,30 @@ export class Order {
     );
   }
 
+  applyQuotedAdjustments(discount: Money, shippingFee: Money): void {
+    requireState(this.#status, EDITABLE, 'applyQuotedAdjustments');
+    this.#requireSameCurrency(discount);
+    this.#requireSameCurrency(shippingFee);
+    if (discount.isNegative() || shippingFee.isNegative() || discount.compareTo(this.itemsTotal()) > 0) {
+      throw new DomainError('INVALID_QUOTED_ADJUSTMENTS', 'Invalid discount or shipping fee');
+    }
+    this.#discountMinorUnits = discount.toMinorUnits();
+    this.#shippingFeeMinorUnits = shippingFee.toMinorUnits();
+    this.#touch();
+  }
+
+  discountTotal(): Money {
+    return Money.fromMinorUnits(this.#discountMinorUnits, this.#currency);
+  }
+
+  shippingFee(): Money {
+    return Money.fromMinorUnits(this.#shippingFeeMinorUnits, this.#currency);
+  }
+
+  grandTotal(): Money {
+    return this.itemsTotal().subtract(this.discountTotal()).add(this.shippingFee());
+  }
+
   confirm(): void {
     requireState(this.#status, [OrderStatus.Draft], 'confirm');
     if (this.#lines.length === 0) {
@@ -268,6 +298,8 @@ export class Order {
       version: this.#version,
       shippingAddress: this.#shippingAddress?.toJSON() ?? null,
       cancellationReason: this.#cancellationReason,
+      discountMinorUnits: this.#discountMinorUnits,
+      shippingFeeMinorUnits: this.#shippingFeeMinorUnits,
       lines: Object.freeze(
         this.#lines.map((line) => ({
           variantId: line.variantId,

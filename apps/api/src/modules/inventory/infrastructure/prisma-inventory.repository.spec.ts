@@ -25,16 +25,6 @@ function row(overrides: Partial<InventoryLotRow> = {}): InventoryLotRow {
   };
 }
 
-/**
- * Kho giả ghi lại **nguyên văn câu lệnh** repository gửi đi, và trả về số hàng
- * bị ảnh hưởng do test quy định.
- *
- * Chủ ý: câu `UPDATE ... WHERE on_hand - reserved >= $1` là hợp đồng giữa
- * repository và Postgres, và Postgres mới là thứ thực thi nó. Ở đây ta kiểm được
- * hai việc — repository có gửi đúng câu có điều kiện đó không, và nó dịch
- * "0 hàng bị sửa" thành mã lỗi nào. Việc câu lệnh ấy thật sự chặn được hai
- * transaction giành nhau thì phải để Postgres trả lời (Giai đoạn 7).
- */
 class FakeInventoryClient implements InventoryPrismaClient {
   statements: { sql: string; values: unknown[] }[] = [];
   reads = 0;
@@ -54,6 +44,14 @@ class FakeInventoryClient implements InventoryPrismaClient {
       this.reads += 1;
       return this.stored && this.stored.id === args.where.id ? this.stored : null;
     },
+    findMany: async (args: { where: Record<string, unknown>; skip: number; take: number; orderBy: { id: string } }): Promise<InventoryLotRow[]> => {
+      if (this.failWith) throw this.failWith;
+      return this.stored ? [this.stored] : [];
+    },
+    count: async (args: { where: Record<string, unknown> }): Promise<number> => {
+      if (this.failWith) throw this.failWith;
+      return this.stored ? 1 : 0;
+    },
   };
 }
 
@@ -71,117 +69,61 @@ describe('PrismaInventoryRepository - reserving stock', () => {
   });
 
   it('should hold stock with a single conditional update', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.statements).toHaveLength(0);
-
-    // act
     const result = await repository.reserve('lot_1', 3);
-
-    // assert
     expect(result.isOk()).toBe(true);
     expect(client.statements).toHaveLength(1);
   });
 
   it('should never read the lot before writing to it', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.reads).toBe(0);
-
-    // act
     await repository.reserve('lot_1', 3);
-
-    // assert
     expect(client.reads).toBe(0);
   });
 
   it('should make the available quantity part of the update condition', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.affected).toBe(1);
-
-    // act
     await repository.reserve('lot_1', 3);
-
-    // assert
     expect(client.statements[0]?.sql).toMatch(/on_hand"?\s*-\s*"?reserved"?\s*>=/i);
   });
 
   it('should exclude blocked lots in the update condition', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.affected).toBe(1);
-
-    // act
     await repository.reserve('lot_1', 3);
-
-    // assert
     expect(client.statements[0]?.sql).toMatch(/blocked"?\s*=\s*false/i);
   });
 
   it('should exclude expired lots in the update condition', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.affected).toBe(1);
-
-    // act
     await repository.reserve('lot_1', 3);
-
-    // assert
     expect(client.statements[0]?.sql).toMatch(/expires_on"?\s+IS\s+NULL\s+OR/i);
     expect(client.statements[0]?.values).toContainEqual(NOW);
   });
 
   it('should bump the version in the same statement', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.affected).toBe(1);
-
-    // act
     await repository.reserve('lot_1', 3);
-
-    // assert
     expect(client.statements[0]?.sql).toMatch(/version"?\s*=\s*"?version"?\s*\+\s*1/i);
   });
 
   it('should pass the lot and quantity as parameters rather than inline text', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.statements).toHaveLength(0);
-
-    // act
     await repository.reserve('lot_1', 3);
-
-    // assert
     expect(client.statements[0]?.values).toContain('lot_1');
     expect(client.statements[0]?.values).toContain(3);
   });
 
   it('should reject a quantity that is not a positive integer', async () => {
-    // arrange
     const { repository, client } = ctx;
-
-    // confirm
     expect(client.statements).toHaveLength(0);
-
-    // act
     const act = () => repository.reserve('lot_1', 0);
-
-    // assert
     await expect(act()).rejects.toThrow(/INVALID_QUANTITY/);
     expect(client.statements).toHaveLength(0);
   });
@@ -196,94 +138,52 @@ describe('PrismaInventoryRepository - why a hold failed', () => {
   });
 
   it('should report a missing lot rather than guessing it is out of stock', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.stored = null;
-
-    // confirm
     expect(client.affected).toBe(0);
-
-    // act
     const result = await repository.reserve('lot_1', 3);
-
-    // assert
     expect(result.errorOrNull()?.code).toBe('LOT_NOT_FOUND');
   });
 
   it('should report a blocked lot rather than out of stock', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.stored = row({ blocked: true, blockReason: 'Nghi hỏng bao bì' });
-
-    // confirm
     expect(client.affected).toBe(0);
-
-    // act
     const result = await repository.reserve('lot_1', 3);
-
-    // assert
     expect(result.errorOrNull()?.code).toBe('LOT_BLOCKED');
   });
 
   it('should report an expired lot rather than out of stock', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.stored = row({ expiresOn: new Date('2026-01-01T00:00:00.000Z') });
-
-    // confirm
     expect(client.affected).toBe(0);
-
-    // act
     const result = await repository.reserve('lot_1', 3);
-
-    // assert
     expect(result.errorOrNull()?.code).toBe('LOT_EXPIRED');
   });
 
   it('should report out of stock when the lot is simply short', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.stored = row({ onHand: 10, reserved: 9 });
-
-    // confirm
     expect(client.affected).toBe(0);
-
-    // act
     const result = await repository.reserve('lot_1', 3);
-
-    // assert
     expect(result.errorOrNull()?.code).toBe('OUT_OF_STOCK');
     expect(result.errorOrNull()?.details.available).toBe(1);
   });
 
   it('should only read the lot after the conditional update missed', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.stored = row({ onHand: 10, reserved: 9 });
-
-    // confirm
     expect(client.reads).toBe(0);
-
-    // act
     await repository.reserve('lot_1', 3);
-
-    // assert
     expect(client.reads).toBe(1);
     expect(client.statements).toHaveLength(1);
   });
 
   it('should let an infrastructure failure surface instead of turning it into a result', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.failWith = new Error('connection lost');
-
-    // confirm
     expect(client.statements).toHaveLength(0);
-
-    // act
     const act = repository.reserve('lot_1', 3);
-
-    // assert
     await expect(act).rejects.toThrow('connection lost');
   });
 });
@@ -296,34 +196,20 @@ describe('PrismaInventoryRepository - reading', () => {
   });
 
   it('should rebuild the lot rather than hand back the stored row', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.stored = row({ reserved: 4, version: 7 });
-
-    // confirm
     expect(client.reads).toBe(0);
-
-    // act
     const lot = await repository.findById('lot_1');
-
-    // assert
     expect(lot).toBeInstanceOf(InventoryLot);
     expect(lot?.reserved).toBe(4);
     expect(lot?.persistedVersion).toBe(7);
   });
 
   it('should return null when no row matches', async () => {
-    // arrange
     const { repository, client } = ctx;
     client.stored = null;
-
-    // confirm
     expect(client.reads).toBe(0);
-
-    // act
     const lot = await repository.findById('lot_1');
-
-    // assert
     expect(lot).toBeNull();
   });
 });

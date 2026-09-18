@@ -7,6 +7,35 @@ CREATE TYPE "order_status" AS ENUM ('DRAFT', 'CONFIRMED', 'PAID', 'DISPATCHED', 
 -- CreateEnum
 CREATE TYPE "idempotency_status" AS ENUM ('IN_PROGRESS', 'COMPLETED');
 
+-- CreateEnum
+CREATE TYPE "outbox_status" AS ENUM ('PENDING', 'SENT', 'FAILED');
+
+-- CreateTable
+CREATE TABLE "outbox_event" (
+    "id" TEXT NOT NULL,
+    "event_type" TEXT NOT NULL,
+    "aggregate_id" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "status" "outbox_status" NOT NULL DEFAULT 'PENDING',
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "last_error" TEXT,
+    "occurred_at" TIMESTAMP(3) NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "outbox_event_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "outbox_event_status_occurred_at_idx" ON "outbox_event"("status", "occurred_at");
+
+-- Số lần thử không âm; đã bỏ cuộc thì phải giữ lý do để người vận hành xử lý.
+ALTER TABLE "outbox_event"
+  ADD CONSTRAINT "outbox_event_attempts_non_negative" CHECK ("attempts" >= 0),
+  ADD CONSTRAINT "outbox_event_failed_needs_reason"
+    CHECK ("status" <> 'FAILED' OR "last_error" IS NOT NULL);
+
 -- CreateTable
 CREATE TABLE "sales_order" (
     "id" TEXT NOT NULL,
@@ -15,6 +44,8 @@ CREATE TABLE "sales_order" (
     "status" "order_status" NOT NULL,
     "version" INTEGER NOT NULL DEFAULT 0,
     "cancellation_reason" TEXT,
+    "discount" BIGINT NOT NULL DEFAULT 0 CHECK ("discount" >= 0),
+    "shipping_fee" BIGINT NOT NULL DEFAULT 0 CHECK ("shipping_fee" >= 0),
     "ship_recipient_name" TEXT,
     "ship_phone" TEXT,
     "ship_line1" TEXT,
@@ -59,6 +90,17 @@ CREATE TABLE "inventory_lot" (
 );
 
 -- CreateTable
+CREATE TABLE "checkout_replay" (
+    "customer_id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "request_hash" TEXT NOT NULL,
+    "status" "idempotency_status" NOT NULL,
+    "response" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "checkout_replay_pkey" PRIMARY KEY ("customer_id", "key"),
+    CONSTRAINT "checkout_replay_completed_response" CHECK ("status" <> 'COMPLETED' OR ("response" IS NOT NULL AND jsonb_typeof("response") = 'object'))
+);
+
 CREATE TABLE "idempotency_record" (
     "customer_id" TEXT NOT NULL,
     "key" TEXT NOT NULL,

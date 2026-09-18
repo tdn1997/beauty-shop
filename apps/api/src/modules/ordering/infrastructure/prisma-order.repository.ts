@@ -2,10 +2,10 @@ import { DomainError } from '../../shared/domain/domain-error';
 import { CurrencyCode } from '../../shared/domain/money';
 import { Result } from '../../shared/domain/result';
 import { PrismaClientSource } from '../../shared/infrastructure/prisma-client-source';
-import { OrderRepository } from '../application/order-repository';
+import { OrderRepository, PaginatedOrders } from '../application/order-repository';
 import { Order, OrderSnapshot, OrderStatus } from '../domain/order';
+import { toOrderDto } from '../application/order.dto';
 
-/** Hàng trong bảng `order_line`. Tiền là `BIGINT` đơn vị nhỏ nhất, không thập phân. */
 export interface OrderLineWriteRow {
   readonly id: string;
   readonly orderId: string;
@@ -16,7 +16,6 @@ export interface OrderLineWriteRow {
   readonly quantity: number;
 }
 
-/** Hàng trong bảng `sales_order`. Địa chỉ là các cột phẳng — bản chụp, không khoá ngoại. */
 export interface SalesOrderWriteRow {
   readonly id: string;
   readonly customerId: string;
@@ -24,6 +23,8 @@ export interface SalesOrderWriteRow {
   readonly status: OrderStatus;
   readonly version: number;
   readonly cancellationReason: string | null;
+  readonly discount: bigint;
+  readonly shippingFee: bigint;
   readonly shipRecipientName: string | null;
   readonly shipPhone: string | null;
   readonly shipLine1: string | null;
@@ -37,24 +38,13 @@ export interface SalesOrderRow extends SalesOrderWriteRow {
   readonly lines: readonly OrderLineWriteRow[];
 }
 
-/**
- * Đúng phần Prisma mà repository này đụng tới — khai báo hẹp thay vì nhận cả
- * `PrismaClient`. Bề mặt hẹp thì test cắm được bản giả, và đọc file này là biết
- * repository chạm vào những bảng nào.
- */
 export interface OrderPrismaClient {
   salesOrder: {
-    findUnique(args: {
-      where: { id: string };
-      include: { lines: true };
-    }): Promise<SalesOrderRow | null>;
-    create(args: {
-      data: SalesOrderWriteRow & { lines: { create: OrderLineWriteRow[] } };
-    }): Promise<unknown>;
-    updateMany(args: {
-      where: { id: string; version: number };
-      data: SalesOrderWriteRow;
-    }): Promise<{ count: number }>;
+    findUnique(args: { where: { id: string }; include: { lines: true } }): Promise<SalesOrderRow | null>;
+    create(args: { data: SalesOrderWriteRow & { lines: { create: OrderLineWriteRow[] } } }): Promise<unknown>;
+    updateMany(args: { where: { id: string; version: number }; data: SalesOrderWriteRow }): Promise<{ count: number }>;
+    findMany(args: { skip: number; take: number; orderBy: { id: string } }): Promise<SalesOrderRow[]>;
+    count(): Promise<number>;
   };
   orderLine: {
     deleteMany(args: { where: { orderId: string } }): Promise<{ count: number }>;
@@ -62,14 +52,6 @@ export interface OrderPrismaClient {
   };
 }
 
-/**
- * Cài đặt `OrderRepository` bằng Prisma (GRASP Pure Fabrication: một lớp không
- * có trong ngôn ngữ nghiệp vụ, sinh ra chỉ để gánh việc lưu trữ, nhờ đó
- * `Order` không phải biết bảng biếc gì).
- *
- * Repository **không tự mở transaction**: nó lấy client đang hiệu lực từ
- * `PrismaClientSource`, nên nằm gọn trong ranh giới do ca sử dụng vạch ra.
- */
 export class PrismaOrderRepository implements OrderRepository {
   readonly #clients: PrismaClientSource<OrderPrismaClient>;
 
@@ -85,6 +67,21 @@ export class PrismaOrderRepository implements OrderRepository {
     return row ? Order.rehydrate(toSnapshot(row)) : null;
   }
 
+  async list(page: number, limit: number): Promise<PaginatedOrders> {
+    const skip = (page - 1) * limit;
+    const [rows, total] = await Promise.all([
+      this.#clients.current().salesOrder.findMany({
+        skip,
+        take: limit,
+        orderBy: { id: 'asc' },
+      }),
+      this.#clients.current().salesOrder.count(),
+    ]);
+
+    const orders = rows.map((row) => toOrderDto(Order.rehydrate(toSnapshot(row))));
+    return { orders, total };
+  }
+
   async save(order: Order): Promise<Result<void>> {
     const snapshot = order.toSnapshot();
     const expectedVersion = order.persistedVersion;
@@ -97,16 +94,11 @@ export class PrismaOrderRepository implements OrderRepository {
 
     const client = this.#clients.current();
     const { count } = await client.salesOrder.updateMany({
-      // Vế `version` này là toàn bộ optimistic lock: nếu ai đó đã ghi đè lên
-      // hàng từ lúc ta đọc, phiên bản không còn khớp và không hàng nào bị sửa.
       where: { id: snapshot.id, version: expectedVersion },
       data: toWriteRow(snapshot),
     });
 
     if (count === 0) {
-      // Không đụng tới các dòng đơn: đơn ngoài kia không phải đơn ta đang cầm.
-      // Cũng không `markPersisted` — thể hiện này đã lạc hậu, muốn ghi thì
-      // phải đọc lại rồi làm lại.
       return Result.err(
         new DomainError('CONCURRENT_MODIFICATION', 'Đơn đã bị thay đổi bởi một thao tác khác', {
           orderId: snapshot.id,
@@ -140,6 +132,8 @@ function toWriteRow(snapshot: OrderSnapshot): SalesOrderWriteRow {
     status: snapshot.status,
     version: snapshot.version,
     cancellationReason: snapshot.cancellationReason,
+    discount: snapshot.discountMinorUnits ?? 0n,
+    shippingFee: snapshot.shippingFeeMinorUnits ?? 0n,
     shipRecipientName: address?.recipientName ?? null,
     shipPhone: address?.phone ?? null,
     shipLine1: address?.line1 ?? null,
@@ -152,8 +146,6 @@ function toWriteRow(snapshot: OrderSnapshot): SalesOrderWriteRow {
 
 function toLineRows(snapshot: OrderSnapshot): OrderLineWriteRow[] {
   return snapshot.lines.map((line) => ({
-    // Khoá chính suy ra từ (đơn, biến thể) thay vì sinh ngẫu nhiên: ghi lại
-    // cùng một dòng luôn ra cùng một khoá, khớp với UNIQUE(order_id, variant_id).
     id: `${snapshot.id}:${line.variantId}`,
     orderId: snapshot.id,
     variantId: line.variantId,
@@ -173,6 +165,8 @@ function toSnapshot(row: SalesOrderRow): OrderSnapshot {
     status: row.status,
     version: row.version,
     cancellationReason: row.cancellationReason,
+    discountMinorUnits: row.discount ?? 0n,
+    shippingFeeMinorUnits: row.shippingFee ?? 0n,
     shippingAddress: row.shipRecipientName
       ? {
           recipientName: row.shipRecipientName,

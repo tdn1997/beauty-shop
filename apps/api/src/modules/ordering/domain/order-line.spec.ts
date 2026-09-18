@@ -88,16 +88,19 @@ describe('OrderLine - quantity rules', () => {
 
   it('should reject a negative unit price', () => {
     // arrange
+    const validLine = OrderLine.create(lineProps);
     const props = { ...lineProps, unitPriceSnapshot: Money.parse('-1', 'VND') };
 
-    // confirm
-    expect(() => OrderLine.create(lineProps)).not.toThrow();
+    // confirm valid construction still works
+    expect(validLine.unitPriceSnapshot.toString()).toBe('459000 VND');
 
     // act
     const act = () => OrderLine.create(props);
 
     // assert
     expect(act).toThrow(/INVALID_UNIT_PRICE/);
+    expect(validLine.unitPriceSnapshot.toString()).toBe('459000 VND');
+    expect(validLine.subtotal().toString()).toBe('918000 VND');
   });
 });
 
