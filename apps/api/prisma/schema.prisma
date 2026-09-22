@@ -36,6 +36,21 @@ enum OutboxStatus {
   @@map("outbox_status")
 }
 
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+
+  @@map("product_status")
+}
+
+enum VariantStatus {
+  ACTIVE
+  DISCONTINUED
+
+  @@map("variant_status")
+}
+
 model OutboxEvent {
   id          String       @id @map("id")
   eventType   String       @map("event_type")
@@ -132,6 +147,53 @@ model CheckoutReplay {
 
   @@id([customerId, key])
   @@map("checkout_replay")
+}
+
+model Product {
+  id        String        @id
+  name      String
+  status    ProductStatus @default(DRAFT)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  variants ProductVariant[]
+
+  @@map("product")
+}
+
+model ProductVariant {
+  id        String        @id
+  productId String        @map("product_id")
+  sku       String        @unique
+  name      String
+  /// Tiền lưu bằng đơn vị nhỏ nhất (BigInt), không bao giờ là số thực.
+  listPrice BigInt        @map("list_price")
+  currency  String        @db.Char(3)
+  status    VariantStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_variant")
+}
+
+model CustomerAddress {
+  id            String   @id
+  customerId    String   @map("customer_id")
+  recipientName String   @map("recipient_name")
+  phone         String
+  line1         String
+  line2         String?
+  ward          String
+  district      String
+  province      String
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@map("customer_address")
 }
 
 model IdempotencyRecord {

@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 
-import { SharedModule } from '../shared/shared.module';
+import { SharedModule, TRANSACTIONS } from '../shared/shared.module';
 import { Money } from '../shared/domain/money';
+import { PrismaTransactionManager } from '../shared/infrastructure/prisma-transaction-manager';
+import { PrismaTransactionClient } from '../shared/infrastructure/prisma.service';
 import { PriceCatalog } from './application/price-catalog';
 import { QuoteService } from './application/quote.service';
 import { QuoteController } from './api/quote.controller';
@@ -14,7 +16,10 @@ import {
   FreeOverThresholdShippingPolicy,
   ShippingPolicy,
 } from './domain/shipping-policy';
-import { InMemoryPriceCatalog } from './infrastructure/in-memory-price-catalog';
+import {
+  PriceCatalogPrismaClient,
+  PrismaPriceCatalog,
+} from './infrastructure/prisma-price-catalog';
 
 export const PRICE_CATALOG = Symbol('PriceCatalog');
 export const DISCOUNT_POLICY = Symbol('DiscountPolicy');
@@ -26,7 +31,14 @@ export const SHIPPING_POLICY = Symbol('ShippingPolicy');
   providers: [
     {
       provide: PRICE_CATALOG,
-      useFactory: () => new InMemoryPriceCatalog([]),
+      inject: [TRANSACTIONS],
+      // Ép kiểu ở composition root, cùng chỗ nối dây — không rải vào adapter.
+      // Kiểu Prisma sinh ra hẹp hơn interface `PriceCatalogPrismaClient` khai
+      // báo (generic theo từng lời gọi) nên TypeScript không tự thấy khớp.
+      useFactory: (transactions: PrismaTransactionManager<PrismaTransactionClient>) =>
+        new PrismaPriceCatalog({
+          current: () => transactions.current() as unknown as PriceCatalogPrismaClient,
+        }),
     },
     {
       provide: DISCOUNT_POLICY,

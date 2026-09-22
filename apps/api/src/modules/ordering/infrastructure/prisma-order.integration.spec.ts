@@ -69,7 +69,7 @@ describe('PrismaOrder IT', () => {
 
     expect(row).not.toBeNull();
     expect(row!.lines).toHaveLength(1);
-    expect(row!.lines[0].variantId).toBe(serum.variantId);
+    expect(row!.lines[0]!.variantId).toBe(serum.variantId);
   });
 
   it('IT02: should enforce CHECK constraints: cancelled order must have reason', async () => {

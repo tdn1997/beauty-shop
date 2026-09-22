@@ -8,6 +8,7 @@ import { PriceCatalog } from './application/price-catalog';
 import { PercentageDiscountPolicy } from './domain/discount-policy';
 import { FreeOverThresholdShippingPolicy } from './domain/shipping-policy';
 import { InMemoryPriceCatalog } from './infrastructure/in-memory-price-catalog';
+import { PrismaPriceCatalog } from './infrastructure/prisma-price-catalog';
 import { DISCOUNT_POLICY, PRICE_CATALOG, PricingModule, SHIPPING_POLICY } from './pricing.module';
 
 describe('PricingModule', () => {
@@ -20,7 +21,7 @@ describe('PricingModule', () => {
     const module = await builder.compile();
     // assert
     expect(module.get(QuoteService)).toBeInstanceOf(QuoteService);
-    expect(module.get(PRICE_CATALOG)).toBeInstanceOf(InMemoryPriceCatalog);
+    expect(module.get(PRICE_CATALOG)).toBeInstanceOf(PrismaPriceCatalog);
     expect(await module.get<PriceCatalog>(PRICE_CATALOG).findVariant('missing')).toBeNull();
     expect(module.get(DISCOUNT_POLICY)).toBeInstanceOf(PercentageDiscountPolicy);
     expect(module.get(SHIPPING_POLICY)).toBeInstanceOf(FreeOverThresholdShippingPolicy);

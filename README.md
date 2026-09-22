@@ -2,17 +2,104 @@
 
 Đồ án Thiết kế phần mềm hướng đối tượng — Next.js (web) · NestJS (API) · PostgreSQL.
 
-## Chạy
+## Hướng dẫn cài đặt (step by step)
+
+Yêu cầu: Node.js ≥ 20.9, Docker (cho Postgres cục bộ), npm.
+
+### 1. Cài dependency
 
 ```bash
-npm install       # cũng chạy `prisma generate`
-npm test          # 434+ test (Vitest), 45 file
-npm run typecheck # tsc cho cả 2 workspace
-npm run db:up     # Postgres qua Docker (cổng 5433)
-npm run db:migrate # áp migration lên DB đó
+git clone <repo-url> beautyshop
+cd beautyshop
+npm install
+```
 
+`npm install` tự chạy `prisma generate` (hook `postinstall` trong `apps/api/package.json`)
+để sinh Prisma Client — không cần chạy tay.
+
+### 2. Cấu hình biến môi trường
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+Mặc định đã trỏ tới Postgres cục bộ ở bước 3:
+
+```
+DATABASE_URL="postgresql://beautyshop:beautyshop@localhost:5433/beautyshop?schema=public"
+```
+
+### 3. Khởi động Postgres
+
+```bash
+npm run db:up
+```
+
+Chạy `postgres:16-alpine` qua `docker-compose.yml`, cổng host **5433** (không đụng Postgres
+cổng 5432 mặc định nếu máy đã có sẵn). Có healthcheck `pg_isready`; đợi vài giây trước khi
+chạy migration nếu container mới khởi động lần đầu.
+
+```bash
+npm run db:down   # tắt và giữ lại volume dữ liệu
+```
+
+### 4. Áp migration
+
+```bash
+npm run db:migrate
+```
+
+Chạy `prisma migrate deploy`, áp tuần tự hai migration:
+
+| Migration | Nội dung |
+|---|---|
+| `20260917000000_init` | `sales_order`, `order_line`, `inventory_lot`, `outbox_event`, `checkout_replay`, `idempotency_record` + toàn bộ `CHECK`/`UNIQUE` |
+| `20260922000000_add_catalog_and_address` | `product`, `product_variant`, `customer_address` + `CHECK` giá không âm, định dạng số điện thoại |
+
+### 5. Seed dữ liệu mẫu
+
+```bash
+npm run db:seed --workspace=@beautyshop/api
+```
+
+Script `apps/api/prisma/seed.ts` (chạy bằng `tsx`, idempotent — chạy lại bao nhiêu lần cũng
+không nhân đôi dữ liệu vì dùng `upsert` theo khoá nghiệp vụ) tạo:
+
+- **4 sản phẩm / 7 biến thể** — trùng khớp SKU và giá đang hiển thị ở trang chủ web
+  (`SKU-SERUM-15`, `SKU-SERUM-30`, `SKU-SPF50-50G`, `SKU-SPF50-100G`, `SKU-FACEWASH-100`,
+  `SKU-VITC-10ML`, `SKU-VITC-20ML`) — `id` của variant **bằng chính SKU** để frontend khớp
+  ngay không cần đổi code web.
+- **7 lô kho** — một lô mỗi biến thể, cố ý có **1 lô hết hàng** (`SKU-VITC-10ML`, `onHand: 0`)
+  và **1 lô sắp hết** (`SKU-SPF50-100G`, `onHand: 5`) để demo màu cảnh báo ở `/admin/inventory`
+  và lỗi `OUT_OF_STOCK` khi checkout.
+- **1 địa chỉ mẫu** — `id: 'default'`, `customerId: 'test-customer-1'`, khớp đúng giá trị
+  hard-code hiện tại của web (`apps/web/src/app/checkout/page.tsx` gửi `addressId: 'default'`,
+  các route API gửi header `x-user-id: test-customer-1`) nên checkout chạy được ngay không
+  cần sửa gì thêm.
+
+### 6. Chạy ứng dụng
+
+```bash
 npm run start:dev --workspace=@beautyshop/api   # API   http://localhost:3001
 npm run dev       --workspace=@beautyshop/web   # Web   http://localhost:3000
+```
+
+Mở `http://localhost:3000`, thêm sản phẩm vào giỏ, vào `/checkout` để thấy quote diff và đặt
+hàng thật (ghi xuống Postgres). Vào `/admin/orders` và `/admin/inventory` để xem dữ liệu vừa
+seed.
+
+### 7. Xác minh cài đặt đúng
+
+```bash
+npm test                              # 445 test (Vitest), chạy được không cần Postgres
+npm run typecheck                     # tsc cho cả 2 workspace
+npm run build --workspace=@beautyshop/api
+```
+
+Muốn seed lại từ đầu (ví dụ sau khi đổi migration):
+
+```bash
+npm run db:down && npm run db:up && npm run db:migrate && npm run db:seed --workspace=@beautyshop/api
 ```
 
 ## Cấu trúc
@@ -29,6 +116,11 @@ apps/web/src/
   app/api/         # Route handlers (proxy tới API)
   components/      # Shared UI components
   lib/             # Cart context, formatters, types
+
+apps/api/prisma/
+  schema.prisma    # lược đồ + enum
+  migrations/       # SQL tuần tự, CHECK ràng buộc đóng gói ở tầng lưu trữ
+  seed.ts           # dữ liệu mẫu idempotent
 ```
 
 Ranh giới `domain/` được **kiểm thử tự động**:
@@ -37,9 +129,11 @@ Ranh giới `domain/` được **kiểm thử tự động**:
 
 ## Trạng thái theo kế hoạch
 
-**Giai đoạn 1–7: xong.**
+**Giai đoạn 1–7: xong.** Catalog và địa chỉ giờ có persistence thật (`PrismaPriceCatalog`,
+`PrismaAddressBook`) — checkout chạy được end-to-end với dữ liệu seed, không còn phụ thuộc
+adapter rỗng trong bộ nhớ.
 
-### Backend (NestJS API) — 434+ test
+### Backend (NestJS API) — 445 test
 
 | Thành phần | Test |
 |---|---|
@@ -60,8 +154,9 @@ Ranh giới `domain/` được **kiểm thử tự động**:
 | OutboxEvent + NotificationPort + OutboxDispatcher + worker | 54 |
 | PaymentGateway (MockGateway + SandboxGateway) contract test | 45 |
 | DiscountPolicy / ShippingPolicy / Quote / MemberDiscountPolicy | 105+ |
+| `PrismaPriceCatalog`, `PrismaAddressBook` | 11 |
 | Module wiring + architecture | 10+ |
-| **Tổng backend** | **434+ test** |
+| **Tổng backend** | **445 test** |
 
 ### Integration (Testcontainers Postgres) — 12 test
 
@@ -97,11 +192,16 @@ IT01–IT12: optimistic lock, CHECK constraints, UNIQUE, concurrent stock reserv
 - `Order.lines` trả mảng đông cứng (`Object.freeze`).
 - **Tách lệnh/truy vấn**: `*QueryService` chỉ đọc; `*CommandService` mới được đổi trạng thái.
 - **Phân loại lỗi**: nghiệp vụ dự kiến → `Result<T>`; vi phạm bất biến → `throw`; lỗi hạ tầng → nổi lên.
+- Seed idempotent: mọi bản ghi dùng `upsert` theo khoá nghiệp vụ (SKU, lot code, address id).
 
 ## Còn nợ
 
-- Migration chưa chạy trên Postgres thật (Docker không kéo được image).
-- Catalog thật (`InMemoryPriceCatalog` rỗng), address adapter rỗng → checkout chưa runtime-ready.
-- Auth middleware chưa có; chỉ tin `request.user` từ header.
-- Sandbox payment thật chưa tích hợp; UNKNOWN reconciliation chưa có.
-- `InventoryRepository` chưa có `save` (nhập hàng, khoá lô).
+- Auth middleware chưa có; chỉ tin `request.user` từ header (`x-user-id`, `x-user-role`)
+  do web route handler tự gắn — chưa có xác thực thật.
+- Sandbox payment thật chưa tích hợp; `SandboxGateway` là adapter wire chung, chưa nối
+  provider cụ thể; UNKNOWN reconciliation tự động chưa có.
+- `InventoryRepository` chưa có `save`/`create` qua port — seed ghi thẳng qua Prisma Client,
+  chưa qua use case "nhập hàng" thật (chưa có ca sử dụng đó).
+- Web catalog (`apps/web/src/app/page.tsx`) vẫn hard-code danh sách sản phẩm; chưa có
+  `GET /products` để web tự tải catalog từ DB — dữ liệu seed hiện chỉ phục vụ tầng API
+  (checkout/quote/admin), trang chủ web chưa đọc từ đó.

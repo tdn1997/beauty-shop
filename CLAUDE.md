@@ -9,12 +9,15 @@ Kế hoạch đầy đủ 7 giai đoạn: `plans/beautyshop.md`. Trạng thái h
 ## Lệnh
 
 ```bash
-npm test                              # 410 test, 41 file, Vitest
+npm test                              # 445 test, Vitest
 npm run typecheck                     # tsc cho cả 2 workspace
 npm run build --workspace=@beautyshop/api
 npm run db:up                         # Postgres qua Docker, cổng 5433
 npm run db:migrate                    # áp migration (CHECK, UNIQUE, cột version)
+npm run db:seed --workspace=@beautyshop/api  # dữ liệu mẫu idempotent (catalog, kho, địa chỉ)
 ```
+
+Hướng dẫn cài đặt đầy đủ từ đầu: `README.md`.
 
 Chạy test trước khi coi bất cứ việc gì là xong. Không có ngoại lệ.
 
@@ -96,7 +99,6 @@ Bất biến được giữ ở **hai** tầng: domain (trong bộ nhớ) và `C
 
 ## Còn nợ, cố ý
 
-Migration chưa chạy trên Postgres thật (Docker không kéo được image ở máy này).
 Cạnh tranh thật chỉ chứng minh được bằng Testcontainers + Postgres (Giai đoạn 7) —
 **không** viết "test cạnh tranh" trên Map trong bộ nhớ, đó là test xanh giả.
 Client Prisma giả trong test là tất định: nó kiểm *câu lệnh gửi đi* và *cách dịch
@@ -107,6 +109,10 @@ Ownership phải kiểm trước replay; Result lỗi phải làm rollback, khô
 Ngoại lệ payment sau commit để nổi lên; lần retry trả UNKNOWN đã lưu, không initiate lại.
 Outbox dùng `@nestjs/schedule`, giao at-least-once, không bảo đảm exactly-once.
 Mock + adapter sandbox HTTP tổng quát đã có contract test; chưa có provider sandbox cụ thể.
-Catalog/address adapter rỗng, chưa có auth middleware (chỉ trusted `request.user`, fail closed):
-không tuyên bố checkout runtime sẵn sàng. Chưa tự reconciliation UNKNOWN hoặc lưu payment
-attempt lifecycle ngoài replay. Audit hiện 15 lỗ hổng (4 moderate, 10 high, 1 critical), chưa auto-fix.
+
+Catalog/address giờ đã có persistence thật (`PrismaPriceCatalog`, `PrismaAddressBook`,
+Giai đoạn 8) — không còn adapter rỗng ở composition root, seed cung cấp dữ liệu khớp
+với mock catalog trên web. Vẫn chưa có auth middleware (chỉ trusted `request.user`,
+fail closed) và chưa có `GET /products` để web tự tải catalog động thay vì hard-code.
+Chưa tự reconciliation UNKNOWN hoặc lưu payment attempt lifecycle ngoài replay.
+`InventoryRepository` chưa có `save`/`create` qua port — seed ghi thẳng qua Prisma Client.

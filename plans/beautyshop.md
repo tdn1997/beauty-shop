@@ -5,7 +5,7 @@ Trọng tâm: thuộc tính, phương thức, Encapsulation, GRASP.
 
 > **Tiến độ**: ô `[x]` là đã làm xong và có test giữ.
 > Chi tiết trạng thái: `README.md` · Quy ước code: `CLAUDE.md`.
-> Giai đoạn 1–7: xong.
+> Giai đoạn 1–8: xong.
 
 ---
 
@@ -133,6 +133,45 @@ Kết quả: 434+ test/45 file; 12 integration test PostgreSQL thật; typecheck
 - [x] Integration (Testcontainers Postgres) — IT01–IT12, 12 test PostgreSQL thật với `Promise.all` cạnh tranh.
 - [x] Contract test — một bộ ca chạy chung cho MockGateway và adapter sandbox HTTP tổng quát; transport giả, không phải provider sandbox thật.
 - [x] Đánh giá thay đổi — `MemberDiscountPolicy` thêm được mà không sửa `OrderLine.subtotal`, chứng minh Protected Variations.
+
+---
+
+## Giai đoạn 8 — Persistence catalog/địa chỉ + seed (tuần 7)
+
+Mục tiêu: xoá bỏ hai adapter rỗng cuối cùng chặn checkout chạy thật, và có dữ liệu mẫu
+để chấm bài / demo mà không cần tự tay tạo sản phẩm.
+
+- [x] Schema: thêm `Product`, `ProductVariant`, `CustomerAddress` vào `schema.prisma`.
+  Migration riêng `20260922000000_add_catalog_and_address` (không sửa `..._init` đã được
+  Testcontainers xác minh ở Giai đoạn 7). `CHECK (list_price >= 0)`,
+  `CHECK (phone ~ '^0[0-9]{9}$')` — lặp lại đúng bất biến domain đã có (`ProductVariant`,
+  `Address.create()`) ở tầng lưu trữ.
+- [x] `PrismaPriceCatalog implements PriceCatalog` — thay `InMemoryPriceCatalog([])` ở
+  composition root (`pricing.module.ts`). `sellable` suy dẫn từ `status === 'ACTIVE'`,
+  không phải cột boolean riêng — giống hệt quy tắc `ProductVariant.isSellable()`.
+- [x] `PrismaAddressBook implements AddressBook` — thay `InMemoryAddressBook` ở
+  `ordering.module.ts`. Điểm bảo mật cốt lõi: `findFirst({ where: { id, customerId } })`
+  lọc theo **cả hai** trường trong một câu truy vấn — không đọc theo `id` rồi mới kiểm tra
+  chủ sở hữu sau, tránh khe hở đọc-rồi-so.
+- [x] `apps/api/prisma/seed.ts` — idempotent (`upsert` theo khoá nghiệp vụ: SKU, lot code,
+  address id), chạy bằng `tsx` (`prisma.seed` config trong `package.json`). Dữ liệu khớp
+  đúng mock catalog trên web (SKU giống hệt, giá giống hệt) nên "Xem giá mới" ở checkout
+  báo "Giá không đổi" ngay từ lần chạy đầu — không phải sửa gì thêm ở web. Cố ý có 1 lô
+  hết hàng và 1 lô sắp hết để demo `OUT_OF_STOCK` và màu cảnh báo admin.
+- [x] Migration đã áp thật lên Postgres cục bộ (`npm run db:migrate`), seed đã chạy thật
+  (`npm run db:seed`) — xác minh bằng query đếm bản ghi, không chỉ chạy trên Testcontainers
+  ephemeral như Giai đoạn 7.
+- [x] README viết lại thành hướng dẫn cài đặt 7 bước, từ `git clone` tới `npm test` xanh.
+
+### Còn nợ sau Giai đoạn 8
+
+- Web catalog (`apps/web/src/app/page.tsx`) vẫn hard-code, chưa có `GET /products` để
+  đọc từ DB — dữ liệu seed hiện chỉ phục vụ tầng API (checkout/quote validate theo DB thật),
+  trang chủ web chưa tự tải danh sách sản phẩm động.
+- `InventoryRepository` vẫn chưa có `save`/`create` qua port; seed ghi thẳng qua
+  `PrismaClient` (bỏ qua application layer) vì chưa có use case "nhập hàng" thật.
+- Auth vẫn chỉ tin `request.user` do web route handler tự gắn header — seed tạo đúng
+  1 customer/1 address để demo, chưa phải hệ thống đăng ký/đăng nhập thật.
 
 ---
 

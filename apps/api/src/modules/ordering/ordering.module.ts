@@ -16,7 +16,7 @@ import { PrismaCheckoutReplay, CheckoutReplayClient } from './infrastructure/pri
 import { CheckoutService } from './application/checkout.service';
 import { CheckoutController } from './api/checkout.controller';
 import { OrderController } from './api/order.controller';
-import { InMemoryAddressBook } from './infrastructure/in-memory-address-book';
+import { AddressBookPrismaClient, PrismaAddressBook } from './infrastructure/prisma-address-book';
 import { PrismaInventoryAllocation, AllocationClient } from './infrastructure/prisma-inventory-allocation';
 
 import { PrismaTransactionManager } from '../shared/infrastructure/prisma-transaction-manager';
@@ -38,7 +38,7 @@ export const ORDER_REPOSITORY = Symbol('OrderRepository');
       inject: [TRANSACTIONS, CLOCK, ORDER_REPOSITORY, INVENTORY_REPOSITORY, OUTBOX_REPOSITORY, QuoteService, PAYMENT_GATEWAY_REGISTRY],
       useFactory: (transactions: PrismaTransactionManager<PrismaTransactionClient>, clock: Clock, orders: OrderRepository, inventory: InventoryRepository, outbox: OutboxRepository, quotes: QuoteService, gateways: PaymentGatewayRegistry) => new CheckoutService({
         transactions, clock, orders, outbox, quotes, gateways,
-        addresses: new InMemoryAddressBook(),
+        addresses: new PrismaAddressBook({ current: () => transactions.current() as unknown as AddressBookPrismaClient }),
         inventory: new PrismaInventoryAllocation({ current: () => transactions.current() as unknown as AllocationClient }, inventory, clock),
         replay: new PrismaCheckoutReplay({ current: () => transactions.current() as unknown as CheckoutReplayClient }),
         nextId: randomUUID,
