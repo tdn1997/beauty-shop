@@ -1,1 +1,16 @@
-import{NextRequest,NextResponse}from'next/server';import{api}from'@/lib/server/api-client';export async function POST(req:NextRequest){const allowed=process.env.WEB_ORIGIN??req.nextUrl.origin;if(req.headers.get('origin')!==allowed)return NextResponse.json({code:'INVALID_ORIGIN'},{status:403});const r=await api('/checkout',{method:'POST',headers:{'idempotency-key':req.headers.get('idempotency-key')??''},body:JSON.stringify(await req.json())});return new NextResponse(r.body,{status:r.status,headers:{'content-type':'application/json','cache-control':'no-store'}})}
+import { NextRequest, NextResponse } from 'next/server';
+import { api } from '@/lib/server/api-client';
+export async function POST(req: NextRequest) {
+  const allowed = process.env.WEB_ORIGIN ?? req.nextUrl.origin;
+  if (req.headers.get('origin') !== allowed)
+    return NextResponse.json({ code: 'INVALID_ORIGIN' }, { status: 403 });
+  const r = await api('/checkout', {
+    method: 'POST',
+    headers: { 'idempotency-key': req.headers.get('idempotency-key') ?? '' },
+    body: JSON.stringify(await req.json()),
+  });
+  return new NextResponse(r.body, {
+    status: r.status,
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+  });
+}

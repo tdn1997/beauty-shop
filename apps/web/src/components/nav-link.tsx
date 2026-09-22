@@ -7,5 +7,7 @@ export default function NavLink({ href, className, ...props }: ComponentProps<ty
   const pathname = usePathname();
   const target = typeof href === 'string' ? href : href.pathname || '';
   const active = target.startsWith('/admin') ? pathname.startsWith(target) : pathname === target;
-  return <Link href={href} className={className} aria-current={active ? 'page' : undefined} {...props} />;
+  return (
+    <Link href={href} className={className} aria-current={active ? 'page' : undefined} {...props} />
+  );
 }

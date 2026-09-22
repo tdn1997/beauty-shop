@@ -7,7 +7,10 @@ import { TransactionManager } from './application/transaction-manager';
 import { Clock, SystemClock } from './domain/clock';
 import { DomainErrorFilter } from './api/domain-error.filter';
 import { IdempotencyInterceptor } from './api/idempotency.interceptor';
-import { IdempotencyPrismaClient, PrismaIdempotencyStore } from './infrastructure/prisma-idempotency.store';
+import {
+  IdempotencyPrismaClient,
+  PrismaIdempotencyStore,
+} from './infrastructure/prisma-idempotency.store';
 import { PrismaService, PrismaTransactionClient } from './infrastructure/prisma.service';
 import { PrismaTransactionManager } from './infrastructure/prisma-transaction-manager';
 
@@ -60,9 +63,9 @@ export class SharedModule {}
  * tự thấy chúng khớp nhau. Ép kiểu được giữ **ở composition root** — đúng một
  * chỗ, ngay cạnh phần nối dây — thay vì rải vào repository.
  */
-function asIdempotencyClient(
-  transactions: PrismaTransactionManager<PrismaTransactionClient>,
-): { current(): IdempotencyPrismaClient } {
+function asIdempotencyClient(transactions: PrismaTransactionManager<PrismaTransactionClient>): {
+  current(): IdempotencyPrismaClient;
+} {
   return { current: () => transactions.current() as unknown as IdempotencyPrismaClient };
 }
 

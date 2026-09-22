@@ -1,1 +1,14 @@
-import { PrismaClient } from '@prisma/client'; import { seedDemo } from './seed/seed-demo'; const prisma = new PrismaClient(); seedDemo(prisma).then(r => console.log(`Seeded products=${r.products} variants=${r.variants} lots=${r.lots} users=${r.users}`)).catch(e => { console.error(e instanceof Error ? e.message : 'Seed failed'); process.exitCode = 1; }).finally(() => prisma.$disconnect());
+import { PrismaClient } from '@prisma/client';
+import { seedDemo } from './seed/seed-demo';
+const prisma = new PrismaClient();
+seedDemo(prisma)
+  .then((r) =>
+    console.log(
+      `Seeded products=${r.products} variants=${r.variants} lots=${r.lots} users=${r.users}`,
+    ),
+  )
+  .catch((e) => {
+    console.error(e instanceof Error ? e.message : 'Seed failed');
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());

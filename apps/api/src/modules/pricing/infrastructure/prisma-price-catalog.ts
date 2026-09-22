@@ -14,7 +14,10 @@ export interface PricedVariantRow {
 
 export interface PriceCatalogPrismaClient {
   productVariant: {
-    findUnique(args: { where: { id: string }; include: { product: true } }): Promise<PricedVariantRow | null>;
+    findUnique(args: {
+      where: { id: string };
+      include: { product: true };
+    }): Promise<PricedVariantRow | null>;
   };
 }
 
@@ -32,7 +35,8 @@ export class PrismaPriceCatalog implements PriceCatalog {
 
   async findVariant(variantId: string): Promise<PricedVariant | null> {
     const row = await this.#clients.current().productVariant.findUnique({
-      where: { id: variantId }, include: { product: true },
+      where: { id: variantId },
+      include: { product: true },
     });
     if (!row) return null;
 

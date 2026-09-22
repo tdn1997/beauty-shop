@@ -9,7 +9,11 @@ import { InventoryAllocation } from '../application/checkout-ports';
 export interface AllocationClient {
   inventoryLot: {
     findMany(args: {
-      where: { variantId: string; blocked: false; OR: [{ expiresOn: null }, { expiresOn: { gt: Date } }] };
+      where: {
+        variantId: string;
+        blocked: false;
+        OR: [{ expiresOn: null }, { expiresOn: { gt: Date } }];
+      };
       orderBy: [{ expiresOn: 'asc' }, { id: 'asc' }];
       select: { id: true; onHand: true; reserved: true };
     }): Promise<readonly { id: string; onHand: number; reserved: number }[]>;
@@ -26,12 +30,18 @@ export class PrismaInventoryAllocation implements InventoryAllocation {
   async reserveForVariant(variantId: string, quantity: number): Promise<Result<void>> {
     requirePositiveInteger(quantity, 'quantity', 'INVALID_QUANTITY');
     const lots = await this.clients.current().inventoryLot.findMany({
-      where: { variantId, blocked: false, OR: [{ expiresOn: null }, { expiresOn: { gt: this.clock.now() } }] },
+      where: {
+        variantId,
+        blocked: false,
+        OR: [{ expiresOn: null }, { expiresOn: { gt: this.clock.now() } }],
+      },
       orderBy: [{ expiresOn: 'asc' }, { id: 'asc' }],
       select: { id: true, onHand: true, reserved: true },
     });
     if (lots.reduce((sum, lot) => sum + Math.max(0, lot.onHand - lot.reserved), 0) < quantity) {
-      return Result.err(new DomainError('OUT_OF_STOCK', 'Insufficient available inventory', { variantId }));
+      return Result.err(
+        new DomainError('OUT_OF_STOCK', 'Insufficient available inventory', { variantId }),
+      );
     }
     let remaining = quantity;
     for (const lot of lots) {

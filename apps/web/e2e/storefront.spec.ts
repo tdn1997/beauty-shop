@@ -1,1 +1,8 @@
-import{test,expect}from'@playwright/test';test('should render accessible storefront without admin privilege flash',async({page})=>{await page.goto('/');await expect(page.getByRole('heading',{name:/Vẻ đẹp dịu dàng/})).toBeVisible();await expect(page.getByRole('link',{name:'Admin'})).toHaveCount(0);await page.setViewportSize({width:360,height:800});await expect(page.locator('main')).toBeVisible()})
+import { test, expect } from '@playwright/test';
+test('should render accessible storefront without admin privilege flash', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: /Vẻ đẹp dịu dàng/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
+  await page.setViewportSize({ width: 360, height: 800 });
+  await expect(page.locator('main')).toBeVisible();
+});

@@ -177,10 +177,12 @@ describe('IdempotencyService - concurrency and failure', () => {
     expect(calls).toBe(0);
 
     // act
-    await service.run(request, async () => {
-      calls += 1;
-      throw new Error('hết hàng');
-    }).catch(() => undefined);
+    await service
+      .run(request, async () => {
+        calls += 1;
+        throw new Error('hết hàng');
+      })
+      .catch(() => undefined);
     const retry = await service.run(request, async () => {
       calls += 1;
       return { orderId: 'ord_1' };

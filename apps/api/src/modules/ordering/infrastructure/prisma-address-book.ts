@@ -16,7 +16,9 @@ export interface CustomerAddressRow {
 
 export interface AddressBookPrismaClient {
   customerAddress: {
-    findFirst(args: { where: { id: string; customerId: string } }): Promise<CustomerAddressRow | null>;
+    findFirst(args: {
+      where: { id: string; customerId: string };
+    }): Promise<CustomerAddressRow | null>;
   };
 }
 

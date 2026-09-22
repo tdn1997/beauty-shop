@@ -1,1 +1,75 @@
-import {createHash,randomBytes,randomUUID} from 'node:crypto';import type {PasswordHasher} from './password-hasher';export type Role='CUSTOMER'|'ADMIN';export interface Principal{readonly id:string;readonly customerId:string;readonly email:string;readonly displayName:string;readonly role:Role}export interface AuthStore{findUserByEmail(email:string):Promise<{id:string;email:string;displayName:string;passwordHash:string;role:Role;enabled:boolean}|null>;createSession(data:{id:string;userId:string;tokenHash:string;expiresAt:Date}):Promise<void>;findSession(tokenHash:string):Promise<{id:string;expiresAt:Date;revokedAt:Date|null;user:{id:string;email:string;displayName:string;role:Role;enabled:boolean}}|null>;revokeSession(tokenHash:string,at:Date):Promise<void>}export class AuthService{constructor(private readonly store:AuthStore,private readonly passwords:PasswordHasher,private readonly now:()=>Date,private readonly dummyHash:string){ }private hashToken(token:string){return createHash('sha256').update(token).digest('hex')}async login(email:string,password:string){const normalized=email.trim().toLowerCase();const user=await this.store.findUserByEmail(normalized);const valid=await this.passwords.verify(password,user?.passwordHash??this.dummyHash);if(!user||!user.enabled||!valid)return null;const token=randomBytes(32).toString('base64url');const expiresAt=new Date(this.now().getTime()+8*60*60*1000);await this.store.createSession({id:randomUUID(),userId:user.id,tokenHash:this.hashToken(token),expiresAt});return {token,expiresAt,user:this.principal(user)}}async authenticate(token:string){if(!token)return null;const session=await this.store.findSession(this.hashToken(token));if(!session||session.revokedAt||session.expiresAt<=this.now()||!session.user.enabled)return null;return this.principal(session.user)}async logout(token:string){if(!token)return;const session=await this.store.findSession(this.hashToken(token));if(session&&!session.revokedAt)await this.store.revokeSession(this.hashToken(token),this.now())}private principal(u:{id:string;email:string;displayName:string;role:Role}):Principal{return{id:u.id,customerId:u.id,email:u.email,displayName:u.displayName,role:u.role}}}
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import type { PasswordHasher } from './password-hasher';
+export type Role = 'CUSTOMER' | 'ADMIN';
+export interface Principal {
+  readonly id: string;
+  readonly customerId: string;
+  readonly email: string;
+  readonly displayName: string;
+  readonly role: Role;
+}
+export interface AuthStore {
+  findUserByEmail(email: string): Promise<{
+    id: string;
+    email: string;
+    displayName: string;
+    passwordHash: string;
+    role: Role;
+    enabled: boolean;
+  } | null>;
+  createSession(data: {
+    id: string;
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<void>;
+  findSession(tokenHash: string): Promise<{
+    id: string;
+    expiresAt: Date;
+    revokedAt: Date | null;
+    user: { id: string; email: string; displayName: string; role: Role; enabled: boolean };
+  } | null>;
+  revokeSession(tokenHash: string, at: Date): Promise<void>;
+}
+export class AuthService {
+  constructor(
+    private readonly store: AuthStore,
+    private readonly passwords: PasswordHasher,
+    private readonly now: () => Date,
+    private readonly dummyHash: string,
+  ) {}
+  private hashToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
+  }
+  async login(email: string, password: string) {
+    const normalized = email.trim().toLowerCase();
+    const user = await this.store.findUserByEmail(normalized);
+    const valid = await this.passwords.verify(password, user?.passwordHash ?? this.dummyHash);
+    if (!user || !user.enabled || !valid) return null;
+    const token = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(this.now().getTime() + 8 * 60 * 60 * 1000);
+    await this.store.createSession({
+      id: randomUUID(),
+      userId: user.id,
+      tokenHash: this.hashToken(token),
+      expiresAt,
+    });
+    return { token, expiresAt, user: this.principal(user) };
+  }
+  async authenticate(token: string) {
+    if (!token) return null;
+    const session = await this.store.findSession(this.hashToken(token));
+    if (!session || session.revokedAt || session.expiresAt <= this.now() || !session.user.enabled)
+      return null;
+    return this.principal(session.user);
+  }
+  async logout(token: string) {
+    if (!token) return;
+    const session = await this.store.findSession(this.hashToken(token));
+    if (session && !session.revokedAt)
+      await this.store.revokeSession(this.hashToken(token), this.now());
+  }
+  private principal(u: { id: string; email: string; displayName: string; role: Role }): Principal {
+    return { id: u.id, customerId: u.id, email: u.email, displayName: u.displayName, role: u.role };
+  }
+}

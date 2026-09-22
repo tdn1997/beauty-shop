@@ -20,9 +20,13 @@ export class PaymentGatewayRegistry {
     for (const gateway of gateways) {
       const provider = requireNonBlank(gateway.provider, 'provider', 'INVALID_PAYMENT_GATEWAY');
       if (byProvider.has(provider)) {
-        throw new DomainError('PAYMENT_PROVIDER_DUPLICATE', `Nhà cung cấp "${provider}" bị đăng ký hai lần`, {
-          provider,
-        });
+        throw new DomainError(
+          'PAYMENT_PROVIDER_DUPLICATE',
+          `Nhà cung cấp "${provider}" bị đăng ký hai lần`,
+          {
+            provider,
+          },
+        );
       }
       byProvider.set(provider, gateway);
     }

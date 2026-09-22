@@ -2,12 +2,23 @@ import { describe, expect, it } from 'vitest';
 
 import { FixedClock } from '../../shared/domain/clock';
 import { OutboxEvent, OutboxStatus } from '../domain/outbox-event';
-import { OutboxPrismaClient, OutboxEventRow, PrismaOutboxRepository } from './prisma-outbox.repository';
+import {
+  OutboxPrismaClient,
+  OutboxEventRow,
+  PrismaOutboxRepository,
+} from './prisma-outbox.repository';
 
 const NOW = new Date('2026-09-17T00:00:00.000Z');
 const row: OutboxEventRow = {
-  id: 'evt_1', eventType: 'ORDER_CONFIRMED', aggregateId: 'ord_1', payload: { nested: ['a'] },
-  occurredAt: NOW, status: OutboxStatus.Pending, attempts: 1, lastError: 'timeout', version: 4,
+  id: 'evt_1',
+  eventType: 'ORDER_CONFIRMED',
+  aggregateId: 'ord_1',
+  payload: { nested: ['a'] },
+  occurredAt: NOW,
+  status: OutboxStatus.Pending,
+  attempts: 1,
+  lastError: 'timeout',
+  version: 4,
 };
 
 class FakeClient implements OutboxPrismaClient {
@@ -36,7 +47,10 @@ class FakeClient implements OutboxPrismaClient {
 }
 
 function fresh() {
-  return OutboxEvent.record({ id: 'evt_1', eventType: 'ORDER_CONFIRMED', aggregateId: 'ord_1', payload: {} }, new FixedClock(NOW));
+  return OutboxEvent.record(
+    { id: 'evt_1', eventType: 'ORDER_CONFIRMED', aggregateId: 'ord_1', payload: {} },
+    new FixedClock(NOW),
+  );
 }
 
 describe('PrismaOutboxRepository', () => {
@@ -68,7 +82,13 @@ describe('PrismaOutboxRepository', () => {
     // act
     const events = await repository.findPending(5);
     // assert
-    expect(client.scans).toEqual([{ where: { status: OutboxStatus.Pending }, orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }], take: 5 }]);
+    expect(client.scans).toEqual([
+      {
+        where: { status: OutboxStatus.Pending },
+        orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+        take: 5,
+      },
+    ]);
     expect(Object.isFrozen(events)).toBe(true);
     expect(events[0]).toBeInstanceOf(OutboxEvent);
     expect(events[0]?.toSnapshot()).toEqual(row);
@@ -88,7 +108,12 @@ describe('PrismaOutboxRepository', () => {
     const result = await repository.save(event);
     // assert
     expect(result.isOk()).toBe(true);
-    expect(client.updates).toEqual([{ where: { id: 'evt_1', version: 4 }, data: { status: OutboxStatus.Sent, attempts: 1, lastError: 'timeout', version: 5 } }]);
+    expect(client.updates).toEqual([
+      {
+        where: { id: 'evt_1', version: 4 },
+        data: { status: OutboxStatus.Sent, attempts: 1, lastError: 'timeout', version: 5 },
+      },
+    ]);
     expect(event.persistedVersion).toBe(5);
   });
 
@@ -107,7 +132,12 @@ describe('PrismaOutboxRepository', () => {
     const result = await repository.save(event);
     // assert
     expect(result.errorOrNull()?.code).toBe('CONCURRENT_MODIFICATION');
-    expect(client.updates).toEqual([{ where: { id: 'evt_1', version: 4 }, data: { status: OutboxStatus.Failed, attempts: 2, lastError: 'rejected', version: 5 } }]);
+    expect(client.updates).toEqual([
+      {
+        where: { id: 'evt_1', version: 4 },
+        data: { status: OutboxStatus.Failed, attempts: 2, lastError: 'rejected', version: 5 },
+      },
+    ]);
     expect(event.persistedVersion).toBe(4);
     expect(event.toSnapshot()).toEqual(before);
   });

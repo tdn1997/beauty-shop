@@ -11,12 +11,16 @@ describe('OutboxWorker', () => {
     expect(dispatchPending).not.toHaveBeenCalled();
     await worker.tick();
     expect(dispatchPending).toHaveBeenCalledTimes(1);
-    expect(Reflect.getMetadata('SCHEDULE_INTERVAL_OPTIONS', worker.tick)).toEqual({ timeout: 5000 });
+    expect(Reflect.getMetadata('SCHEDULE_INTERVAL_OPTIONS', worker.tick)).toEqual({
+      timeout: 5000,
+    });
   });
 
   it('should skip overlapping ticks and resume after dispatch finishes', async () => {
     let finish: () => void = () => {};
-    const pending = new Promise<typeof report>((resolve) => { finish = () => resolve(report); });
+    const pending = new Promise<typeof report>((resolve) => {
+      finish = () => resolve(report);
+    });
     const dispatchPending = vi.fn(() => pending);
     const worker = new OutboxWorker({ dispatchPending }, { error: vi.fn() });
     expect(dispatchPending).not.toHaveBeenCalled();

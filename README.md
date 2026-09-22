@@ -51,10 +51,10 @@ npm run db:migrate
 
 Chạy `prisma migrate deploy`, áp tuần tự hai migration:
 
-| Migration | Nội dung |
-|---|---|
-| `20260917000000_init` | `sales_order`, `order_line`, `inventory_lot`, `outbox_event`, `checkout_replay`, `idempotency_record` + toàn bộ `CHECK`/`UNIQUE` |
-| `20260922000000_add_catalog_and_address` | `product`, `product_variant`, `customer_address` + `CHECK` giá không âm, định dạng số điện thoại |
+| Migration                                | Nội dung                                                                                                                         |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `20260917000000_init`                    | `sales_order`, `order_line`, `inventory_lot`, `outbox_event`, `checkout_replay`, `idempotency_record` + toàn bộ `CHECK`/`UNIQUE` |
+| `20260922000000_add_catalog_and_address` | `product`, `product_variant`, `customer_address` + `CHECK` giá không âm, định dạng số điện thoại                                 |
 
 ### 5. Seed dữ liệu mẫu
 
@@ -135,28 +135,28 @@ adapter rỗng trong bộ nhớ.
 
 ### Backend (NestJS API) — 445 test
 
-| Thành phần | Test |
-|---|---|
-| `Money` + arithmetic + percentage | 39 |
-| `Clock` | 4 |
-| `DomainError` + guards | 3 |
-| `Result<T>` | 9 |
-| `Product`, `ProductVariant` | 13 |
-| `OrderLine` | 8 |
-| `Address` | 9 |
-| `Order` (aggregate, snapshot, phiên bản) | 34 |
-| `InventoryLot` | 23 |
-| CQS: Command / Query service | 12+ |
-| CheckoutService + durable replay | 25+ |
-| Idempotency (service + interceptor) | 13 |
-| DomainError → HTTP filter | 5 |
-| TransactionManager + repositories | 40+ |
-| OutboxEvent + NotificationPort + OutboxDispatcher + worker | 54 |
-| PaymentGateway (MockGateway + SandboxGateway) contract test | 45 |
-| DiscountPolicy / ShippingPolicy / Quote / MemberDiscountPolicy | 105+ |
-| `PrismaPriceCatalog`, `PrismaAddressBook` | 11 |
-| Module wiring + architecture | 10+ |
-| **Tổng backend** | **445 test** |
+| Thành phần                                                     | Test         |
+| -------------------------------------------------------------- | ------------ |
+| `Money` + arithmetic + percentage                              | 39           |
+| `Clock`                                                        | 4            |
+| `DomainError` + guards                                         | 3            |
+| `Result<T>`                                                    | 9            |
+| `Product`, `ProductVariant`                                    | 13           |
+| `OrderLine`                                                    | 8            |
+| `Address`                                                      | 9            |
+| `Order` (aggregate, snapshot, phiên bản)                       | 34           |
+| `InventoryLot`                                                 | 23           |
+| CQS: Command / Query service                                   | 12+          |
+| CheckoutService + durable replay                               | 25+          |
+| Idempotency (service + interceptor)                            | 13           |
+| DomainError → HTTP filter                                      | 5            |
+| TransactionManager + repositories                              | 40+          |
+| OutboxEvent + NotificationPort + OutboxDispatcher + worker     | 54           |
+| PaymentGateway (MockGateway + SandboxGateway) contract test    | 45           |
+| DiscountPolicy / ShippingPolicy / Quote / MemberDiscountPolicy | 105+         |
+| `PrismaPriceCatalog`, `PrismaAddressBook`                      | 11           |
+| Module wiring + architecture                                   | 10+          |
+| **Tổng backend**                                               | **445 test** |
 
 ### Integration (Testcontainers Postgres) — 12 test
 
@@ -164,24 +164,24 @@ IT01–IT12: optimistic lock, CHECK constraints, UNIQUE, concurrent stock reserv
 
 ### Web (Next.js) — 5 trang
 
-| Trang | URL | Tính năng |
-|---|---|---|
-| Trang chủ / Catalog | `/` | 4 sản phẩm, variant selector SKU, thêm vào giỏ |
-| Giỏ hàng | `/cart` | Xem/sửa/xoá, tổng phụ |
-| Checkout | `/checkout` | Quote diff, idempotency key, xử lý UNKNOWN |
-| Admin Đơn hàng | `/admin/orders` | Bảng phân trang, tách cột thanh toán/giao hàng |
-| Admin Kho | `/admin/inventory` | Bảng phân trang, 3 cột Vật lý/Đã giữ/Khả dụng |
+| Trang               | URL                | Tính năng                                      |
+| ------------------- | ------------------ | ---------------------------------------------- |
+| Trang chủ / Catalog | `/`                | 4 sản phẩm, variant selector SKU, thêm vào giỏ |
+| Giỏ hàng            | `/cart`            | Xem/sửa/xoá, tổng phụ                          |
+| Checkout            | `/checkout`        | Quote diff, idempotency key, xử lý UNKNOWN     |
+| Admin Đơn hàng      | `/admin/orders`    | Bảng phân trang, tách cột thanh toán/giao hàng |
+| Admin Kho           | `/admin/inventory` | Bảng phân trang, 3 cột Vật lý/Đã giữ/Khả dụng  |
 
 ### API endpoints
 
-| Method | Path | Mô tả |
-|---|---|---|
-| `POST` | `/quote` | Báo giá |
-| `GET` | `/quote/preview` | Báo giá nhanh |
-| `POST` | `/checkout` | Đặt hàng (idempotent) |
-| `GET` | `/orders` | Danh sách đơn (admin) |
-| `GET` | `/orders/:id` | Chi tiết đơn (admin) |
-| `GET` | `/inventory/lots` | Danh sách lô kho (admin) |
+| Method | Path              | Mô tả                    |
+| ------ | ----------------- | ------------------------ |
+| `POST` | `/quote`          | Báo giá                  |
+| `GET`  | `/quote/preview`  | Báo giá nhanh            |
+| `POST` | `/checkout`       | Đặt hàng (idempotent)    |
+| `GET`  | `/orders`         | Danh sách đơn (admin)    |
+| `GET`  | `/orders/:id`     | Chi tiết đơn (admin)     |
+| `GET`  | `/inventory/lots` | Danh sách lô kho (admin) |
 
 ## Quy ước đã áp dụng
 

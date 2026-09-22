@@ -1,4 +1,13 @@
-import { Controller, ForbiddenException, Get, Inject, Param, Query, Req, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Inject,
+  Param,
+  Query,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Roles } from '../../iam/api/roles.guard';
 import { DomainError } from '../../shared/domain/domain-error';
 import { OrderDto } from '../application/order.dto';
@@ -22,8 +31,10 @@ export class OrderController {
 
   private requireAdmin(request: { user?: unknown }): void {
     const user = request.user;
-    if (!user || typeof user !== 'object') throw new UnauthorizedException('Authentication required');
-    if (!('role' in user) || user.role !== 'ADMIN') throw new ForbiddenException('Admin role required');
+    if (!user || typeof user !== 'object')
+      throw new UnauthorizedException('Authentication required');
+    if (!('role' in user) || user.role !== 'ADMIN')
+      throw new ForbiddenException('Admin role required');
   }
 
   @Get()
@@ -39,10 +50,7 @@ export class OrderController {
   }
 
   @Get(':id')
-  async getOrder(
-    @Req() request: { user?: unknown },
-    @Param('id') id: string,
-  ): Promise<OrderDto> {
+  async getOrder(@Req() request: { user?: unknown }, @Param('id') id: string): Promise<OrderDto> {
     this.requireAdmin(request);
     const order = await this.query.findById(id);
     if (!order) throw new DomainError('ORDER_NOT_FOUND', `Order ${id} not found`, { orderId: id });

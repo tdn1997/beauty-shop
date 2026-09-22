@@ -19,8 +19,11 @@ export function formatDate(isoString: string | null): string {
   if (!isoString) return '—';
   const date = new Date(isoString);
   return date.toLocaleString('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -28,7 +31,9 @@ export function formatDateOnly(isoString: string | null): string {
   if (!isoString) return '—';
   const date = new Date(isoString);
   return date.toLocaleString('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   });
 }
 
@@ -42,11 +47,17 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 
 export function getShippingStatusLabel(status: string): string {
   switch (status) {
-    case 'DRAFT': return '—';
-    case 'CONFIRMED': return 'Chưa giao';
-    case 'PAID': return 'Đã thanh toán';
-    case 'DISPATCHED': return 'Đã giao';
-    case 'CANCELLED': return 'Đã huỷ';
-    default: return status;
+    case 'DRAFT':
+      return '—';
+    case 'CONFIRMED':
+      return 'Chưa giao';
+    case 'PAID':
+      return 'Đã thanh toán';
+    case 'DISPATCHED':
+      return 'Đã giao';
+    case 'CANCELLED':
+      return 'Đã huỷ';
+    default:
+      return status;
   }
 }

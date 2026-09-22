@@ -24,17 +24,22 @@ export class QuoteController {
     });
     return result.match({
       ok: (quote) => quote.toDto() as never,
-      err: (err) => { throw err; },
+      err: (err) => {
+        throw err;
+      },
     });
   }
 
   @Post()
-  async createQuote(
-    @Req() request: { user?: unknown },
-    @Body() body: unknown,
-  ) {
+  async createQuote(@Req() request: { user?: unknown }, @Body() body: unknown) {
     const user = request.user;
-    if (!user || typeof user !== 'object' || !('customerId' in user) || typeof user.customerId !== 'string' || !user.customerId.trim()) {
+    if (
+      !user ||
+      typeof user !== 'object' ||
+      !('customerId' in user) ||
+      typeof user.customerId !== 'string' ||
+      !user.customerId.trim()
+    ) {
       throw new DomainError('UNAUTHENTICATED', 'A trusted principal is required');
     }
     const { addressId, lines } = validateQuoteRequestBody(body);
@@ -42,12 +47,15 @@ export class QuoteController {
   }
 
   @Get('preview')
-  async previewQuote(
-    @Req() request: { user?: unknown },
-    @Query() query: unknown,
-  ) {
+  async previewQuote(@Req() request: { user?: unknown }, @Query() query: unknown) {
     const user = request.user;
-    if (!user || typeof user !== 'object' || !('customerId' in user) || typeof user.customerId !== 'string' || !user.customerId.trim()) {
+    if (
+      !user ||
+      typeof user !== 'object' ||
+      !('customerId' in user) ||
+      typeof user.customerId !== 'string' ||
+      !user.customerId.trim()
+    ) {
       throw new DomainError('UNAUTHENTICATED', 'A trusted principal is required');
     }
     const { addressId, lines } = validateQuoteRequestBody(query);

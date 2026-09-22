@@ -53,9 +53,8 @@ export class IdempotencyInterceptor implements NestInterceptor {
       throw new UnauthorizedException('Yêu cầu chưa xác định được khách hàng');
     }
 
-    const result = await this.#idempotency.run(
-      { customerId, key, body: request.body },
-      async () => firstValueFrom(next.handle()),
+    const result = await this.#idempotency.run({ customerId, key, body: request.body }, async () =>
+      firstValueFrom(next.handle()),
     );
 
     return result.match({

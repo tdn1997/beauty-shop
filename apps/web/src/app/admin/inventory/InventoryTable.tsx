@@ -1,3 +1,161 @@
-'use client';import {useState} from 'react';import {InventoryResponse,InventoryLotDto} from '@/lib/types/admin';import {formatDateOnly} from '@/lib/format';import {Badge,type BadgeTone} from '@/components/ui/badge';import {Button} from '@/components/ui/button';import {Spinner} from '@/components/ui/spinner';import {EmptyState} from '@/components/ui/empty-state';const PAGE_SIZE=20;function availableTone(n:number):BadgeTone{return n>10?'success':n>=1?'warn':'danger'}
-export default function InventoryTable({initialData}:{initialData:InventoryResponse}){const[data,setData]=useState(initialData);const[page,setPage]=useState(initialData.page);const[loading,setLoading]=useState(false);const totalPages=Math.ceil(data.total/PAGE_SIZE);const totals=data.lots.reduce((acc,lot)=>({onHand:acc.onHand+lot.onHand,reserved:acc.reserved+lot.reserved,available:acc.available+lot.available}),{onHand:0,reserved:0,available:0});async function loadPage(p:number){setLoading(true);try{const res=await fetch(`/api/inventory?page=${p}&limit=${PAGE_SIZE}`);const json:InventoryResponse=await res.json();setData(json);setPage(p)}finally{setLoading(false)}}return <section><header className="admin-toolbar"><div><h1 className="page-title">Kho hàng</h1><p className="text-muted text-sm">Tổng cộng: <strong>{data.total}</strong> lô hàng</p></div>{loading&&<Spinner/>}</header><div className="stat-grid"><div className="stat"><span className="stat__label">Tổng Vật lý</span><strong className="stat__value tabular">{totals.onHand.toLocaleString()}</strong></div><div className="stat"><span className="stat__label">Đã giữ</span><strong className="stat__value tabular">{totals.reserved.toLocaleString()}</strong></div><div className="stat"><span className="stat__label">Khả dụng</span><strong className="stat__value"><Badge tone={availableTone(totals.available)}>{totals.available.toLocaleString()}</Badge></strong></div></div><div className="table-wrap" aria-busy={loading}><table className="table"><caption className="sr-only">Danh sách lô hàng tồn kho</caption><thead><tr><th scope="col">Lot ID</th><th scope="col">Variant ID</th><th scope="col">Mã lô</th><th scope="col" className="num">Vật lý</th><th scope="col" className="num">Đã giữ</th><th scope="col" className="num">Khả dụng</th><th scope="col">Hết hạn</th><th scope="col">Trạng thái</th><th scope="col" className="num">Ver</th></tr></thead><tbody>{data.lots.map(lot=><InventoryRow key={lot.id} lot={lot}/>)}{data.lots.length===0&&<tr><td colSpan={9}><EmptyState title="Không có lô hàng nào."/></td></tr>}</tbody></table></div><div className="pagination"><Button variant="secondary" size="sm" aria-label="Trang trước" onClick={()=>loadPage(page-1)} disabled={page<=1||loading||data.total===0}>← Trước</Button><span className="text-sm" aria-live="polite">Trang {page} / {totalPages||1}</span><Button variant="secondary" size="sm" aria-label="Trang sau" onClick={()=>loadPage(page+1)} disabled={page>=totalPages||loading||data.total===0}>Sau →</Button></div></section>}
-function InventoryRow({lot}:{lot:InventoryLotDto}){const isExpired=lot.expiresOn?new Date(lot.expiresOn)<new Date():false;return <tr><td><span className="mono truncate" title={lot.id}>{lot.id.slice(0,8)}…</span></td><td><span className="mono truncate" title={lot.variantId}>{lot.variantId.slice(0,8)}…</span></td><td><span className="mono truncate" title={lot.lotCode}>{lot.lotCode}</span></td><td className="num">{lot.onHand.toLocaleString()}</td><td className="num text-muted">{lot.reserved.toLocaleString()}</td><td className="num"><Badge tone={availableTone(lot.available)}>{lot.available.toLocaleString()}</Badge></td><td>{formatDateOnly(lot.expiresOn)} {isExpired&&<Badge tone="danger">Hết hạn</Badge>}</td><td>{lot.blocked?<Badge tone="danger">Khoá</Badge>:<Badge tone="success">OK</Badge>}</td><td className="num mono">v{lot.version}</td></tr>}
+'use client';
+import { useState } from 'react';
+import { InventoryResponse, InventoryLotDto } from '@/lib/types/admin';
+import { formatDateOnly } from '@/lib/format';
+import { Badge, type BadgeTone } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { EmptyState } from '@/components/ui/empty-state';
+const PAGE_SIZE = 20;
+function availableTone(n: number): BadgeTone {
+  return n > 10 ? 'success' : n >= 1 ? 'warn' : 'danger';
+}
+export default function InventoryTable({ initialData }: { initialData: InventoryResponse }) {
+  const [data, setData] = useState(initialData);
+  const [page, setPage] = useState(initialData.page);
+  const [loading, setLoading] = useState(false);
+  const totalPages = Math.ceil(data.total / PAGE_SIZE);
+  const totals = data.lots.reduce(
+    (acc, lot) => ({
+      onHand: acc.onHand + lot.onHand,
+      reserved: acc.reserved + lot.reserved,
+      available: acc.available + lot.available,
+    }),
+    { onHand: 0, reserved: 0, available: 0 },
+  );
+  async function loadPage(p: number) {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/inventory?page=${p}&limit=${PAGE_SIZE}`);
+      const json: InventoryResponse = await res.json();
+      setData(json);
+      setPage(p);
+    } finally {
+      setLoading(false);
+    }
+  }
+  return (
+    <section>
+      <header className="admin-toolbar">
+        <div>
+          <h1 className="page-title">Kho hàng</h1>
+          <p className="text-muted text-sm">
+            Tổng cộng: <strong>{data.total}</strong> lô hàng
+          </p>
+        </div>
+        {loading && <Spinner />}
+      </header>
+      <div className="stat-grid">
+        <div className="stat">
+          <span className="stat__label">Tổng Vật lý</span>
+          <strong className="stat__value tabular">{totals.onHand.toLocaleString()}</strong>
+        </div>
+        <div className="stat">
+          <span className="stat__label">Đã giữ</span>
+          <strong className="stat__value tabular">{totals.reserved.toLocaleString()}</strong>
+        </div>
+        <div className="stat">
+          <span className="stat__label">Khả dụng</span>
+          <strong className="stat__value">
+            <Badge tone={availableTone(totals.available)}>
+              {totals.available.toLocaleString()}
+            </Badge>
+          </strong>
+        </div>
+      </div>
+      <div className="table-wrap" aria-busy={loading}>
+        <table className="table">
+          <caption className="sr-only">Danh sách lô hàng tồn kho</caption>
+          <thead>
+            <tr>
+              <th scope="col">Lot ID</th>
+              <th scope="col">Variant ID</th>
+              <th scope="col">Mã lô</th>
+              <th scope="col" className="num">
+                Vật lý
+              </th>
+              <th scope="col" className="num">
+                Đã giữ
+              </th>
+              <th scope="col" className="num">
+                Khả dụng
+              </th>
+              <th scope="col">Hết hạn</th>
+              <th scope="col">Trạng thái</th>
+              <th scope="col" className="num">
+                Ver
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.lots.map((lot) => (
+              <InventoryRow key={lot.id} lot={lot} />
+            ))}
+            {data.lots.length === 0 && (
+              <tr>
+                <td colSpan={9}>
+                  <EmptyState title="Không có lô hàng nào." />
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="pagination">
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label="Trang trước"
+          onClick={() => loadPage(page - 1)}
+          disabled={page <= 1 || loading || data.total === 0}
+        >
+          ← Trước
+        </Button>
+        <span className="text-sm" aria-live="polite">
+          Trang {page} / {totalPages || 1}
+        </span>
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label="Trang sau"
+          onClick={() => loadPage(page + 1)}
+          disabled={page >= totalPages || loading || data.total === 0}
+        >
+          Sau →
+        </Button>
+      </div>
+    </section>
+  );
+}
+function InventoryRow({ lot }: { lot: InventoryLotDto }) {
+  const isExpired = lot.expiresOn ? new Date(lot.expiresOn) < new Date() : false;
+  return (
+    <tr>
+      <td>
+        <span className="mono truncate" title={lot.id}>
+          {lot.id.slice(0, 8)}…
+        </span>
+      </td>
+      <td>
+        <span className="mono truncate" title={lot.variantId}>
+          {lot.variantId.slice(0, 8)}…
+        </span>
+      </td>
+      <td>
+        <span className="mono truncate" title={lot.lotCode}>
+          {lot.lotCode}
+        </span>
+      </td>
+      <td className="num">{lot.onHand.toLocaleString()}</td>
+      <td className="num text-muted">{lot.reserved.toLocaleString()}</td>
+      <td className="num">
+        <Badge tone={availableTone(lot.available)}>{lot.available.toLocaleString()}</Badge>
+      </td>
+      <td>
+        {formatDateOnly(lot.expiresOn)} {isExpired && <Badge tone="danger">Hết hạn</Badge>}
+      </td>
+      <td>{lot.blocked ? <Badge tone="danger">Khoá</Badge> : <Badge tone="success">OK</Badge>}</td>
+      <td className="num mono">v{lot.version}</td>
+    </tr>
+  );
+}

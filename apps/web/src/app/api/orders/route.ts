@@ -1,1 +1,9 @@
-import{NextRequest,NextResponse}from'next/server';import{api}from'@/lib/server/api-client';export async function GET(req:NextRequest){const r=await api(`/orders${req.nextUrl.search}`);return new NextResponse(r.body,{status:r.status,headers:{'content-type':'application/json','cache-control':'no-store'}})}
+import { NextRequest, NextResponse } from 'next/server';
+import { api } from '@/lib/server/api-client';
+export async function GET(req: NextRequest) {
+  const r = await api(`/orders${req.nextUrl.search}`);
+  return new NextResponse(r.body, {
+    status: r.status,
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+  });
+}

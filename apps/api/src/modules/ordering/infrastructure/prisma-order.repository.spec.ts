@@ -55,7 +55,10 @@ class FakeOrderClient implements OrderPrismaClient {
   failWith: Error | null = null;
 
   readonly salesOrder = {
-    findUnique: async (args: { where: { id: string }; include?: { lines?: boolean } }): Promise<SalesOrderRow | null> => {
+    findUnique: async (args: {
+      where: { id: string };
+      include?: { lines?: boolean };
+    }): Promise<SalesOrderRow | null> => {
       this.#maybeFail();
       const row = this.rows.get(args.where.id);
       if (!row) return null;
@@ -80,10 +83,16 @@ class FakeOrderClient implements OrderPrismaClient {
       this.rows.set(args.where.id, args.data);
       return { count: 1 };
     },
-    findMany: async (args: { skip: number; take: number; orderBy: { id: string } }): Promise<SalesOrderRow[]> => {
+    findMany: async (args: {
+      skip: number;
+      take: number;
+      orderBy: { id: string };
+    }): Promise<SalesOrderRow[]> => {
       this.#maybeFail();
       const allRows = [...this.rows.values()].sort((a, b) => a.id.localeCompare(b.id));
-      return allRows.slice(args.skip, args.skip + args.take).map((row) => ({ ...row, lines: this.lines.get(row.id) ?? [] }));
+      return allRows
+        .slice(args.skip, args.skip + args.take)
+        .map((row) => ({ ...row, lines: this.lines.get(row.id) ?? [] }));
     },
     count: async (): Promise<number> => {
       this.#maybeFail();
@@ -98,7 +107,9 @@ class FakeOrderClient implements OrderPrismaClient {
       this.lines.set(args.where.orderId, []);
       return { count: removed };
     },
-    createMany: async (args: { data: readonly OrderLineWriteRow[] }): Promise<{ count: number }> => {
+    createMany: async (args: {
+      data: readonly OrderLineWriteRow[];
+    }): Promise<{ count: number }> => {
       this.#maybeFail();
       for (const line of args.data) {
         this.lines.set(line.orderId, [...(this.lines.get(line.orderId) ?? []), line]);

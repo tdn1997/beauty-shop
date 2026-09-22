@@ -1,1 +1,21 @@
-import{Module}from '@nestjs/common';import{SharedModule}from '../shared/shared.module';import{PrismaService}from '../shared/infrastructure/prisma.service';import{CatalogController}from './api/catalog.controller';import{PrismaCatalogReader}from './infrastructure/prisma-catalog.reader';const CATALOG=Symbol('CatalogReader');@Module({imports:[SharedModule],controllers:[CatalogController],providers:[{provide:CATALOG,inject:[PrismaService],useFactory:(p:PrismaService)=>new PrismaCatalogReader(p)},{provide:CatalogController,inject:[CATALOG],useFactory:(r:PrismaCatalogReader)=>new CatalogController(r)}]})export class CatalogModule{}
+import { Module } from '@nestjs/common';
+import { SharedModule } from '../shared/shared.module';
+import { PrismaService } from '../shared/infrastructure/prisma.service';
+import { CatalogController } from './api/catalog.controller';
+import { CATALOG_READER } from './application/catalog-reader';
+import { PrismaCatalogReader } from './infrastructure/prisma-catalog.reader';
+
+export { CATALOG_READER };
+
+@Module({
+  imports: [SharedModule],
+  controllers: [CatalogController],
+  providers: [
+    {
+      provide: CATALOG_READER,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => new PrismaCatalogReader(prisma),
+    },
+  ],
+})
+export class CatalogModule {}

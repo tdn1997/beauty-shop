@@ -6,10 +6,7 @@ import { PrismaTransactionManager } from '../shared/infrastructure/prisma-transa
 import { PrismaTransactionClient } from '../shared/infrastructure/prisma.service';
 import { PriceCatalog } from './application/price-catalog';
 import { QuoteService } from './application/quote.service';
-import {
-  DiscountPolicy,
-  PercentageDiscountPolicy,
-} from './domain/discount-policy';
+import { DiscountPolicy, PercentageDiscountPolicy } from './domain/discount-policy';
 import {
   FlatRateShippingPolicy,
   FreeOverThresholdShippingPolicy,
@@ -41,23 +38,25 @@ export const SHIPPING_POLICY = Symbol('ShippingPolicy');
     },
     {
       provide: DISCOUNT_POLICY,
-      useFactory: () => PercentageDiscountPolicy.create({
-        code: 'CHECKOUT',
-        minimumSpend: Money.parse('500000', 'VND'),
-        basisPoints: 1000,
-        cap: Money.parse('100000', 'VND'),
-      }),
+      useFactory: () =>
+        PercentageDiscountPolicy.create({
+          code: 'CHECKOUT',
+          minimumSpend: Money.parse('500000', 'VND'),
+          basisPoints: 1000,
+          cap: Money.parse('100000', 'VND'),
+        }),
     },
     {
       provide: SHIPPING_POLICY,
-      useFactory: () => FreeOverThresholdShippingPolicy.create({
-        code: 'FREE_OVER_500K',
-        threshold: Money.parse('500000', 'VND'),
-        base: FlatRateShippingPolicy.create({
-          code: 'FLAT_30K',
-          fee: Money.parse('30000', 'VND'),
+      useFactory: () =>
+        FreeOverThresholdShippingPolicy.create({
+          code: 'FREE_OVER_500K',
+          threshold: Money.parse('500000', 'VND'),
+          base: FlatRateShippingPolicy.create({
+            code: 'FLAT_30K',
+            fee: Money.parse('30000', 'VND'),
+          }),
         }),
-      }),
     },
     {
       provide: QuoteService,

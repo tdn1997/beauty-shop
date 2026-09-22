@@ -1,1 +1,34 @@
-export interface AttemptInput{userId:string;addressId:string;currency:'VND';lines:readonly{variantId:string;quantity:number}[]}export interface CheckoutAttempt extends AttemptInput{key:string;canonical:string}export function canonicalAttempt(input:AttemptInput):string{return JSON.stringify({userId:input.userId,addressId:input.addressId,currency:input.currency,lines:[...input.lines].sort((a,b)=>a.variantId.localeCompare(b.variantId)).map(x=>({variantId:x.variantId,quantity:x.quantity}))})}export function loadAttempt(input:AttemptInput,stored:string|null):CheckoutAttempt{const canonical=canonicalAttempt(input);if(stored)try{const parsed=JSON.parse(stored)as CheckoutAttempt;if(parsed.key)return parsed}catch{}return{...input,lines:[...input.lines].sort((a,b)=>a.variantId.localeCompare(b.variantId)),canonical,key:crypto.randomUUID()}}
+export interface AttemptInput {
+  userId: string;
+  addressId: string;
+  currency: 'VND';
+  lines: readonly { variantId: string; quantity: number }[];
+}
+export interface CheckoutAttempt extends AttemptInput {
+  key: string;
+  canonical: string;
+}
+export function canonicalAttempt(input: AttemptInput): string {
+  return JSON.stringify({
+    userId: input.userId,
+    addressId: input.addressId,
+    currency: input.currency,
+    lines: [...input.lines]
+      .sort((a, b) => a.variantId.localeCompare(b.variantId))
+      .map((x) => ({ variantId: x.variantId, quantity: x.quantity })),
+  });
+}
+export function loadAttempt(input: AttemptInput, stored: string | null): CheckoutAttempt {
+  const canonical = canonicalAttempt(input);
+  if (stored)
+    try {
+      const parsed = JSON.parse(stored) as CheckoutAttempt;
+      if (parsed.key) return parsed;
+    } catch {}
+  return {
+    ...input,
+    lines: [...input.lines].sort((a, b) => a.variantId.localeCompare(b.variantId)),
+    canonical,
+    key: crypto.randomUUID(),
+  };
+}

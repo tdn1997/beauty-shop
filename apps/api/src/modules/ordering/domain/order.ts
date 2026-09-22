@@ -233,7 +233,11 @@ export class Order {
     requireState(this.#status, EDITABLE, 'applyQuotedAdjustments');
     this.#requireSameCurrency(discount);
     this.#requireSameCurrency(shippingFee);
-    if (discount.isNegative() || shippingFee.isNegative() || discount.compareTo(this.itemsTotal()) > 0) {
+    if (
+      discount.isNegative() ||
+      shippingFee.isNegative() ||
+      discount.compareTo(this.itemsTotal()) > 0
+    ) {
       throw new DomainError('INVALID_QUOTED_ADJUSTMENTS', 'Invalid discount or shipping fee');
     }
     this.#discountMinorUnits = discount.toMinorUnits();

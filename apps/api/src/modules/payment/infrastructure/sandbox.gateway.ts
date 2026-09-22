@@ -20,7 +20,9 @@ export class SandboxGateway implements PaymentGateway {
 
   async initiate(initiation: PaymentInitiation): Promise<Result<PaymentOutcome>> {
     if (initiation.amount.isNegative()) {
-      return Result.err(new DomainError('PAYMENT_AMOUNT_INVALID', 'Số tiền thanh toán không được âm'));
+      return Result.err(
+        new DomainError('PAYMENT_AMOUNT_INVALID', 'Số tiền thanh toán không được âm'),
+      );
     }
     let response: { status: number; body: unknown };
     try {
@@ -40,7 +42,9 @@ export class SandboxGateway implements PaymentGateway {
   }
 
   async query(providerRef: string): Promise<Result<PaymentOutcome>> {
-    const response = await this.#client.get(`${this.#baseUrl}/payments/${encodeURIComponent(providerRef)}`);
+    const response = await this.#client.get(
+      `${this.#baseUrl}/payments/${encodeURIComponent(providerRef)}`,
+    );
     if (response.status === 404) {
       return Result.err(new DomainError('PAYMENT_REF_NOT_FOUND', 'Không tìm thấy mã thanh toán'));
     }
@@ -53,14 +57,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function unknownOutcome(providerRef: string | null): PaymentOutcome {
-  return Object.freeze({ status: PaymentStatus.Unknown, providerRef, redirectUrl: null, reason: 'Chưa xác định được kết quả thanh toán' });
+  return Object.freeze({
+    status: PaymentStatus.Unknown,
+    providerRef,
+    redirectUrl: null,
+    reason: 'Chưa xác định được kết quả thanh toán',
+  });
 }
 
 function mapResponse(response: { status: number; body: unknown }): PaymentOutcome {
   const body = response.body;
   if (!isRecord(body)) return unknownOutcome(null);
-  const reference = typeof body.reference === 'string' && body.reference.trim() !== '' ? body.reference : null;
-  if (response.status < 200 || response.status >= 300 || reference === null) return unknownOutcome(reference);
+  const reference =
+    typeof body.reference === 'string' && body.reference.trim() !== '' ? body.reference : null;
+  if (response.status < 200 || response.status >= 300 || reference === null)
+    return unknownOutcome(reference);
   const statuses: Readonly<Record<string, PaymentStatus>> = {
     PENDING: PaymentStatus.Pending,
     PAID: PaymentStatus.Paid,
@@ -68,9 +79,21 @@ function mapResponse(response: { status: number; body: unknown }): PaymentOutcom
     FAILED: PaymentStatus.Failed,
     UNKNOWN: PaymentStatus.Unknown,
   };
-  const status = typeof body.status === 'string' && Object.hasOwn(statuses, body.status) ? statuses[body.status] : undefined;
-  if (!status || (body.redirectUrl != null && typeof body.redirectUrl !== 'string') || (body.reason != null && typeof body.reason !== 'string')) {
+  const status =
+    typeof body.status === 'string' && Object.hasOwn(statuses, body.status)
+      ? statuses[body.status]
+      : undefined;
+  if (
+    !status ||
+    (body.redirectUrl != null && typeof body.redirectUrl !== 'string') ||
+    (body.reason != null && typeof body.reason !== 'string')
+  ) {
     return unknownOutcome(reference);
   }
-  return Object.freeze({ status, providerRef: reference, redirectUrl: typeof body.redirectUrl === 'string' ? body.redirectUrl : null, reason: typeof body.reason === 'string' ? body.reason : null });
+  return Object.freeze({
+    status,
+    providerRef: reference,
+    redirectUrl: typeof body.redirectUrl === 'string' ? body.redirectUrl : null,
+    reason: typeof body.reason === 'string' ? body.reason : null,
+  });
 }

@@ -7,10 +7,7 @@ import {
   PercentageDiscountPolicy,
   ThresholdDiscountPolicy,
 } from '../domain/discount-policy';
-import {
-  FlatRateShippingPolicy,
-  FreeOverThresholdShippingPolicy,
-} from '../domain/shipping-policy';
+import { FlatRateShippingPolicy, FreeOverThresholdShippingPolicy } from '../domain/shipping-policy';
 import { InMemoryPriceCatalog } from '../infrastructure/in-memory-price-catalog';
 import { PriceCatalog, PricedVariant } from './price-catalog';
 import { QuoteRequest, QuoteService } from './quote.service';
@@ -321,8 +318,11 @@ describe('QuoteService - preconditions', () => {
     // arrange
     const request = requestOf({ lines: [{ variantId: 'missing', quantity: 0 }] });
     const before = JSON.stringify(request);
-    const service = new QuoteService(new CatalogAlwaysFails(), CompositeDiscountPolicy.of('NONE', []),
-      FlatRateShippingPolicy.create({ code: 'FREE', fee: Money.zero('VND') }));
+    const service = new QuoteService(
+      new CatalogAlwaysFails(),
+      CompositeDiscountPolicy.of('NONE', []),
+      FlatRateShippingPolicy.create({ code: 'FREE', fee: Money.zero('VND') }),
+    );
     // confirm
     expect(request.lines[0]?.quantity).toBe(0);
     // act

@@ -4,22 +4,43 @@ import { PaymentStatus } from '../domain/payment-status';
 import { describePaymentGatewayContract } from '../application/payment-gateway.contract';
 import { MockGateway } from './mock.gateway';
 
-describePaymentGatewayContract('MockGateway', (status) => ({ gateway: MockGateway.scripted([status]) }));
+describePaymentGatewayContract('MockGateway', (status) => ({
+  gateway: MockGateway.scripted([status]),
+}));
 
-const initiation = { orderId: 'order_1', amount: Money.parse('1', 'VND'), returnUrl: 'https://shop.test/return' };
+const initiation = {
+  orderId: 'order_1',
+  amount: Money.parse('1', 'VND'),
+  returnUrl: 'https://shop.test/return',
+};
 
 describe('MockGateway - scripts', () => {
   it('should follow the script with deterministic references then report uncertainty on exhaustion', async () => {
     // arrange
-    const gateway = MockGateway.scripted([PaymentStatus.Paid, PaymentStatus.Failed, PaymentStatus.Unknown]);
+    const gateway = MockGateway.scripted([
+      PaymentStatus.Paid,
+      PaymentStatus.Failed,
+      PaymentStatus.Unknown,
+    ]);
     // confirm
     expect(gateway.provider).toBe('mock');
     // act
     const outcomes = [];
-    for (let index = 0; index < 4; index += 1) outcomes.push((await gateway.initiate(initiation)).unwrap());
+    for (let index = 0; index < 4; index += 1)
+      outcomes.push((await gateway.initiate(initiation)).unwrap());
     // assert
-    expect(outcomes.map((outcome) => outcome.status)).toEqual([PaymentStatus.Paid, PaymentStatus.Failed, PaymentStatus.Unknown, PaymentStatus.Unknown]);
-    expect(outcomes.map((outcome) => outcome.providerRef)).toEqual(['mock_1', 'mock_2', 'mock_3', 'mock_4']);
+    expect(outcomes.map((outcome) => outcome.status)).toEqual([
+      PaymentStatus.Paid,
+      PaymentStatus.Failed,
+      PaymentStatus.Unknown,
+      PaymentStatus.Unknown,
+    ]);
+    expect(outcomes.map((outcome) => outcome.providerRef)).toEqual([
+      'mock_1',
+      'mock_2',
+      'mock_3',
+      'mock_4',
+    ]);
   });
 
   it('should propagate a scripted infrastructure fault without altering previous payments', async () => {

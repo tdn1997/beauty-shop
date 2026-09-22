@@ -36,55 +36,65 @@ class InMemoryMemberResolver implements MemberTierResolver {
 
 describe('MemberDiscountPolicy', () => {
   it('should give Bronze customer 2% off', () => {
-    const resolver = new InMemoryMemberResolver([{
-      customerId: 'cus_1',
-      tier: 'BRONZE',
-      lifetimeSpend: Money.parse('500000', 'VND'),
-    }]);
+    const resolver = new InMemoryMemberResolver([
+      {
+        customerId: 'cus_1',
+        tier: 'BRONZE',
+        lifetimeSpend: Money.parse('500000', 'VND'),
+      },
+    ]);
     const policy = MemberDiscountPolicy.create({ code: 'MEMBER', tierResolver: resolver });
     const discount = policy.discountFor(contextOf('1000000'));
     expect(discount.toString()).toBe('20000 VND');
   });
 
   it('should give Silver customer 5% off', () => {
-    const resolver = new InMemoryMemberResolver([{
-      customerId: 'cus_1',
-      tier: 'SILVER',
-      lifetimeSpend: Money.parse('500000', 'VND'),
-    }]);
+    const resolver = new InMemoryMemberResolver([
+      {
+        customerId: 'cus_1',
+        tier: 'SILVER',
+        lifetimeSpend: Money.parse('500000', 'VND'),
+      },
+    ]);
     const policy = MemberDiscountPolicy.create({ code: 'MEMBER', tierResolver: resolver });
     const discount = policy.discountFor(contextOf('1000000'));
     expect(discount.toString()).toBe('50000 VND');
   });
 
   it('should give Gold customer 10% off', () => {
-    const resolver = new InMemoryMemberResolver([{
-      customerId: 'cus_1',
-      tier: 'GOLD',
-      lifetimeSpend: Money.parse('500000', 'VND'),
-    }]);
+    const resolver = new InMemoryMemberResolver([
+      {
+        customerId: 'cus_1',
+        tier: 'GOLD',
+        lifetimeSpend: Money.parse('500000', 'VND'),
+      },
+    ]);
     const policy = MemberDiscountPolicy.create({ code: 'MEMBER', tierResolver: resolver });
     const discount = policy.discountFor(contextOf('1000000'));
     expect(discount.toString()).toBe('100000 VND');
   });
 
   it('should give Gold customer with 2M lifetime spend 10% + 2% = 12% off', () => {
-    const resolver = new InMemoryMemberResolver([{
-      customerId: 'cus_1',
-      tier: 'GOLD',
-      lifetimeSpend: Money.parse('2000000', 'VND'),
-    }]);
+    const resolver = new InMemoryMemberResolver([
+      {
+        customerId: 'cus_1',
+        tier: 'GOLD',
+        lifetimeSpend: Money.parse('2000000', 'VND'),
+      },
+    ]);
     const policy = MemberDiscountPolicy.create({ code: 'MEMBER', tierResolver: resolver });
     const discount = policy.discountFor(contextOf('1000000'));
     expect(discount.toString()).toBe('120000 VND');
   });
 
   it('should give Gold customer with 5M lifetime spend 10% + 5% = 15% off', () => {
-    const resolver = new InMemoryMemberResolver([{
-      customerId: 'cus_1',
-      tier: 'GOLD',
-      lifetimeSpend: Money.parse('5000000', 'VND'),
-    }]);
+    const resolver = new InMemoryMemberResolver([
+      {
+        customerId: 'cus_1',
+        tier: 'GOLD',
+        lifetimeSpend: Money.parse('5000000', 'VND'),
+      },
+    ]);
     const policy = MemberDiscountPolicy.create({ code: 'MEMBER', tierResolver: resolver });
     const discount = policy.discountFor(contextOf('1000000'));
     expect(discount.toString()).toBe('150000 VND');
@@ -99,11 +109,13 @@ describe('MemberDiscountPolicy', () => {
   });
 
   it('should never return more than itemsTotal', () => {
-    const resolver = new InMemoryMemberResolver([{
-      customerId: 'cus_1',
-      tier: 'GOLD',
-      lifetimeSpend: Money.parse('15000000', 'VND'),
-    }]);
+    const resolver = new InMemoryMemberResolver([
+      {
+        customerId: 'cus_1',
+        tier: 'GOLD',
+        lifetimeSpend: Money.parse('15000000', 'VND'),
+      },
+    ]);
     const policy = MemberDiscountPolicy.create({ code: 'MEMBER', tierResolver: resolver });
     const context = contextOf('100000');
     const discount = policy.discountFor(context);

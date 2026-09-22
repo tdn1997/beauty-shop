@@ -44,7 +44,12 @@ class FakeInventoryClient implements InventoryPrismaClient {
       this.reads += 1;
       return this.stored && this.stored.id === args.where.id ? this.stored : null;
     },
-    findMany: async (args: { where: Record<string, unknown>; skip: number; take: number; orderBy: { id: string } }): Promise<InventoryLotRow[]> => {
+    findMany: async (args: {
+      where: Record<string, unknown>;
+      skip: number;
+      take: number;
+      orderBy: { id: string };
+    }): Promise<InventoryLotRow[]> => {
       if (this.failWith) throw this.failWith;
       return this.stored ? [this.stored] : [];
     },

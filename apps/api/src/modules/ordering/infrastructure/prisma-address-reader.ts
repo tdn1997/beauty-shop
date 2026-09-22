@@ -1,1 +1,24 @@
-import type{AddressReader}from'../application/customer-profile.service';import type{PrismaClientSource}from'../../shared/infrastructure/prisma-client-source';export interface AddressReaderClient{customerAddress:{findMany(args:unknown):Promise<any[]>}}export class PrismaAddressReader implements AddressReader{constructor(private readonly clients:PrismaClientSource<AddressReaderClient>){}listOwned(customerId:string){return this.clients.current().customerAddress.findMany({where:{customerId},select:{id:true,recipientName:true,phone:true,line1:true,line2:true,ward:true,district:true,province:true},orderBy:{createdAt:'asc'}})}}
+import type { AddressReader } from '../application/customer-profile.service';
+import type { PrismaClientSource } from '../../shared/infrastructure/prisma-client-source';
+export interface AddressReaderClient {
+  customerAddress: { findMany(args: unknown): Promise<any[]> };
+}
+export class PrismaAddressReader implements AddressReader {
+  constructor(private readonly clients: PrismaClientSource<AddressReaderClient>) {}
+  listOwned(customerId: string) {
+    return this.clients.current().customerAddress.findMany({
+      where: { customerId },
+      select: {
+        id: true,
+        recipientName: true,
+        phone: true,
+        line1: true,
+        line2: true,
+        ward: true,
+        district: true,
+        province: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+}

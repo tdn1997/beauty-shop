@@ -22,10 +22,7 @@ const INVENTORY_REPOSITORY = Symbol('InventoryRepository');
     {
       provide: INVENTORY_REPOSITORY,
       inject: [TRANSACTIONS, CLOCK],
-      useFactory: (
-        transactions: PrismaTransactionManager<PrismaTransactionClient>,
-        clock: Clock,
-      ) =>
+      useFactory: (transactions: PrismaTransactionManager<PrismaTransactionClient>, clock: Clock) =>
         new PrismaInventoryRepository(
           { current: () => transactions.current() as unknown as InventoryPrismaClient },
           clock,

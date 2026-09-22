@@ -19,7 +19,10 @@ describe('PricingModule', () => {
     // confirm
     expect(new Set([PRICE_CATALOG, DISCOUNT_POLICY, SHIPPING_POLICY]).size).toBe(3);
     // act
-    const module = await builder.overrideProvider(TRANSACTIONS).useValue({ current: () => ({ productVariant: { findUnique: async () => null } }) }).compile();
+    const module = await builder
+      .overrideProvider(TRANSACTIONS)
+      .useValue({ current: () => ({ productVariant: { findUnique: async () => null } }) })
+      .compile();
     // assert
     expect(module.get(QuoteService)).toBeInstanceOf(QuoteService);
     expect(module.get(PRICE_CATALOG)).toBeInstanceOf(PrismaPriceCatalog);
@@ -31,17 +34,26 @@ describe('PricingModule', () => {
 
   it('should compose threshold and percentage discounts with threshold shipping', async () => {
     // arrange
-    const catalog = new InMemoryPriceCatalog([{
-      variantId: 'v1', sku: 'SKU', name: 'Serum',
-      unitPrice: Money.parse('1000000', 'VND'), sellable: true,
-    }]);
+    const catalog = new InMemoryPriceCatalog([
+      {
+        variantId: 'v1',
+        sku: 'SKU',
+        name: 'Serum',
+        unitPrice: Money.parse('1000000', 'VND'),
+        sellable: true,
+      },
+    ]);
     const module = await Test.createTestingModule({ imports: [PricingModule] })
-      .overrideProvider(PRICE_CATALOG).useValue(catalog).compile();
+      .overrideProvider(PRICE_CATALOG)
+      .useValue(catalog)
+      .compile();
     // confirm
     expect(await catalog.findVariant('v1')).not.toBeNull();
     // act
     const result = await module.get(QuoteService).quoteFor({
-      customerId: 'c1', currency: 'VND', province: 'HCM',
+      customerId: 'c1',
+      currency: 'VND',
+      province: 'HCM',
       lines: [{ variantId: 'v1', quantity: 1 }],
     });
     // assert

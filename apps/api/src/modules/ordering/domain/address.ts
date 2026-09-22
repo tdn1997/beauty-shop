@@ -76,9 +76,7 @@ export class Address {
   equals(other: Address): boolean {
     const mine = this.toJSON();
     const theirs = other.toJSON();
-    return (Object.keys(mine) as Array<keyof AddressDto>).every(
-      (key) => mine[key] === theirs[key],
-    );
+    return (Object.keys(mine) as Array<keyof AddressDto>).every((key) => mine[key] === theirs[key]);
   }
 
   toJSON(): AddressDto {

@@ -2,13 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import { LogNotificationAdapter } from './log-notification.adapter';
 
-const notification = { eventType: 'ORDER_CONFIRMED', aggregateId: 'ord_1', payload: { orderId: 'ord_1' } };
+const notification = {
+  eventType: 'ORDER_CONFIRMED',
+  aggregateId: 'ord_1',
+  payload: { orderId: 'ord_1' },
+};
 
 describe('LogNotificationAdapter', () => {
   it('should send a structured notification to the injected sink', async () => {
     // arrange
     const lines: string[] = [];
-    const adapter = new LogNotificationAdapter({ write: (line) => { lines.push(line); } });
+    const adapter = new LogNotificationAdapter({
+      write: (line) => {
+        lines.push(line);
+      },
+    });
     // confirm
     expect(lines).toEqual([]);
     // act
@@ -21,7 +29,11 @@ describe('LogNotificationAdapter', () => {
   it('should propagate sink failure without modifying the notification', async () => {
     // arrange
     const before = structuredClone(notification);
-    const adapter = new LogNotificationAdapter({ write: () => { throw new Error('sink unavailable'); } });
+    const adapter = new LogNotificationAdapter({
+      write: () => {
+        throw new Error('sink unavailable');
+      },
+    });
     // confirm
     expect(notification).toEqual(before);
     // act

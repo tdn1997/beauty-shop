@@ -1,1 +1,21 @@
-import{CanActivate,ExecutionContext,ForbiddenException,Injectable,SetMetadata}from '@nestjs/common';import{Reflector}from '@nestjs/core';import type{Role}from '../application/auth.service';export const Roles=(...roles:Role[])=>SetMetadata('roles',roles);@Injectable()export class RolesGuard implements CanActivate{constructor(private readonly reflector:Reflector){}canActivate(c:ExecutionContext){const roles=this.reflector.getAllAndOverride<Role[]>('roles',[c.getHandler(),c.getClass()]);if(!roles?.length)return true;const user=c.switchToHttp().getRequest().user;if(!roles.includes(user.role))throw new ForbiddenException('Insufficient role');return true;}}
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  SetMetadata,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import type { Role } from '../application/auth.service';
+export const Roles = (...roles: Role[]) => SetMetadata('roles', roles);
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+  canActivate(c: ExecutionContext) {
+    const roles = this.reflector.getAllAndOverride<Role[]>('roles', [c.getHandler(), c.getClass()]);
+    if (!roles?.length) return true;
+    const user = c.switchToHttp().getRequest().user;
+    if (!roles.includes(user.role)) throw new ForbiddenException('Insufficient role');
+    return true;
+  }
+}

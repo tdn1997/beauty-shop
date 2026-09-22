@@ -57,7 +57,10 @@ describe('PaymentGatewayRegistry - chọn cổng', () => {
 
   it('should list the registered providers in registration order', () => {
     // arrange
-    const registry = new PaymentGatewayRegistry([gatewayNamed('mock'), gatewayNamed('sandbox')], 'mock');
+    const registry = new PaymentGatewayRegistry(
+      [gatewayNamed('mock'), gatewayNamed('sandbox')],
+      'mock',
+    );
 
     // confirm
     expect(registry.default().provider).toBe('mock');

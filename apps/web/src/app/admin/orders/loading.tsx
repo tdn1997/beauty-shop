@@ -1,1 +1,13 @@
-import {TableSkeleton} from '@/components/ui/skeleton';export default function Loading(){return <section><div className="admin-toolbar"><h1 className="page-title">Quản lý đơn hàng</h1></div><div className="table-wrap"><TableSkeleton rows={8} cols={4}/></div></section>}
+import { TableSkeleton } from '@/components/ui/skeleton';
+export default function Loading() {
+  return (
+    <section>
+      <div className="admin-toolbar">
+        <h1 className="page-title">Quản lý đơn hàng</h1>
+      </div>
+      <div className="table-wrap">
+        <TableSkeleton rows={8} cols={4} />
+      </div>
+    </section>
+  );
+}

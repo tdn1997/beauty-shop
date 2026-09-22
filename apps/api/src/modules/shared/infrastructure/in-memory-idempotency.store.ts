@@ -1,7 +1,4 @@
-import {
-  IdempotencyRecord,
-  IdempotencyStore,
-} from '../application/idempotency-store';
+import { IdempotencyRecord, IdempotencyStore } from '../application/idempotency-store';
 
 /**
  * Bản chạy trong bộ nhớ. Bản Postgres sẽ thay vào ở Giai đoạn 5,

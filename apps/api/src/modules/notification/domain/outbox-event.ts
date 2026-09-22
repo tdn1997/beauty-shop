@@ -111,7 +111,11 @@ export class OutboxEvent {
       occurredAt: structuredClone(snapshot.occurredAt),
     });
 
-    const attempts = requireNonNegativeInteger(snapshot.attempts, 'attempts', 'INVALID_OUTBOX_EVENT');
+    const attempts = requireNonNegativeInteger(
+      snapshot.attempts,
+      'attempts',
+      'INVALID_OUTBOX_EVENT',
+    );
     if (snapshot.status === OutboxStatus.Failed && snapshot.lastError === null) {
       // Cùng một luật với CHECK trong migration: đã bỏ cuộc thì phải nói được vì sao.
       throw new DomainError('INVALID_OUTBOX_EVENT', 'Sự kiện đã bỏ cuộc phải kèm lý do', {

@@ -35,7 +35,9 @@ function listTypeScriptFiles(dir: string): string[] {
  */
 function listInwardFiles(): string[] {
   return readdirSync(MODULES_ROOT)
-    .flatMap((moduleName) => ['api', 'application'].map((layer) => join(MODULES_ROOT, moduleName, layer)))
+    .flatMap((moduleName) =>
+      ['api', 'application'].map((layer) => join(MODULES_ROOT, moduleName, layer)),
+    )
     .filter((layerDir) => {
       try {
         return statSync(layerDir).isDirectory();
@@ -117,7 +119,9 @@ describe('architecture - domain purity', () => {
         .filter((specifier) => {
           const target = specifier.split('/').filter((part) => part !== '..' && part !== '.');
           const targetModule = target[0];
-          return targetModule !== undefined && targetModule !== owningModule && targetModule !== 'shared';
+          return (
+            targetModule !== undefined && targetModule !== owningModule && targetModule !== 'shared'
+          );
         })
         .map((specifier) => `${owningModule} → ${specifier}`);
     });

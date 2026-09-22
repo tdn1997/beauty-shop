@@ -78,24 +78,24 @@ Return active products with active variants only; omit products without returned
 
 Canonical categories: `serum`, `sunscreen`, `cleansing`, `toner`, `moisturizer`, `lips`, `body`, `mask`, `hair`.
 
-| # | Product | Category | Variant → VND price |
-|---:|---|---|---|
-| 1 | Serum Dưỡng Ẩm | serum | 15 ml → 150,000; 30 ml → 280,000 |
-| 2 | Kem Chống Nắng SPF50+ | sunscreen | 50 g → 220,000; 100 g → 390,000 |
-| 3 | Sữa Rửa Mặt CeraVe | cleansing | 100 ml → 95,000 |
-| 4 | Tinh Chất Vitamin C | serum | 10 ml → 180,000; 20 ml → 340,000 |
-| 5 | Toner Cấp Ẩm | toner | 150 ml → 165,000; 250 ml → 245,000 |
-| 6 | Nước Tẩy Trang Dịu Nhẹ | cleansing | 100 ml → 89,000; 400 ml → 229,000 |
-| 7 | Dầu Tẩy Trang | cleansing | 100 ml → 195,000; 200 ml → 325,000 |
-| 8 | Kem Dưỡng Ceramide | moisturizer | 30 g → 185,000; 50 g → 275,000 |
-| 9 | Serum Niacinamide | serum | 15 ml → 145,000; 30 ml → 265,000 |
-| 10 | Serum Retinol Dịu Nhẹ | serum | 30 ml → 320,000 |
-| 11 | Son Dưỡng Môi | lips | clear → 75,000; pink → 85,000 |
-| 12 | Sữa Dưỡng Thể | body | 250 ml → 175,000; 400 ml → 255,000 |
-| 13 | Kem Dưỡng Tay | body | 50 g → 65,000 |
-| 14 | Mặt Nạ Cấp Ẩm | mask | 1 piece → 25,000; 5 pack → 115,000 |
-| 15 | Dầu Gội Dịu Nhẹ | hair | 300 ml → 185,000 |
-| 16 | Dầu Xả Dưỡng Ẩm | hair | 250 ml → 175,000 |
+|   # | Product                | Category    | Variant → VND price                |
+| --: | ---------------------- | ----------- | ---------------------------------- |
+|   1 | Serum Dưỡng Ẩm         | serum       | 15 ml → 150,000; 30 ml → 280,000   |
+|   2 | Kem Chống Nắng SPF50+  | sunscreen   | 50 g → 220,000; 100 g → 390,000    |
+|   3 | Sữa Rửa Mặt CeraVe     | cleansing   | 100 ml → 95,000                    |
+|   4 | Tinh Chất Vitamin C    | serum       | 10 ml → 180,000; 20 ml → 340,000   |
+|   5 | Toner Cấp Ẩm           | toner       | 150 ml → 165,000; 250 ml → 245,000 |
+|   6 | Nước Tẩy Trang Dịu Nhẹ | cleansing   | 100 ml → 89,000; 400 ml → 229,000  |
+|   7 | Dầu Tẩy Trang          | cleansing   | 100 ml → 195,000; 200 ml → 325,000 |
+|   8 | Kem Dưỡng Ceramide     | moisturizer | 30 g → 185,000; 50 g → 275,000     |
+|   9 | Serum Niacinamide      | serum       | 15 ml → 145,000; 30 ml → 265,000   |
+|  10 | Serum Retinol Dịu Nhẹ  | serum       | 30 ml → 320,000                    |
+|  11 | Son Dưỡng Môi          | lips        | clear → 75,000; pink → 85,000      |
+|  12 | Sữa Dưỡng Thể          | body        | 250 ml → 175,000; 400 ml → 255,000 |
+|  13 | Kem Dưỡng Tay          | body        | 50 g → 65,000                      |
+|  14 | Mặt Nạ Cấp Ẩm          | mask        | 1 piece → 25,000; 5 pack → 115,000 |
+|  15 | Dầu Gội Dịu Nhẹ        | hair        | 300 ml → 185,000                   |
+|  16 | Dầu Xả Dưỡng Ẩm        | hair        | 250 ml → 175,000                   |
 
 Exactly 16 products, 27 variants, 27 base lots. Preserve existing identifiers/prices/seven lot codes. Use stable explicit IDs/SKUs for new rows, e.g. `prod-toner` and `SKU-TONER-150ML`. Vitamin C 10 ml stock is 0; SPF50+ 100 g stock is 5; document deterministic 20–100 stock for every other variant. Prices are illustrative; descriptions contain no medical or sales claims. Draft/discontinued/expired/blocked fixtures are test-only.
 
@@ -134,15 +134,15 @@ Define async `PasswordHasher` port. Implement Node `crypto.scrypt` with random s
 
 Use 8-hour absolute expiry aligned in DB/cookie. Cookie: Secure under HTTPS, `SameSite=Lax`, `Path=/`, no Domain; document development versus production `__Host-` naming. No localStorage token, JWT, or refresh subsystem. Never trust identity headers. Principal id/customerId must be consistent for idempotency. Reload current role/enabled on every request.
 
-| Endpoint | Policy |
-|---|---|
-| `GET /products` | Public |
-| `POST /auth/login` | Public, throttled |
-| `GET /auth/me` | Valid session |
-| `POST /auth/logout` | Repeatable revocation |
-| `GET /addresses` | Current user only |
-| `POST /quote`, `GET /quote/preview`, `POST /checkout` | Session + owned address |
-| `GET /orders`, `GET /orders/:id`, `GET /inventory/lots` | Admin only |
+| Endpoint                                                | Policy                  |
+| ------------------------------------------------------- | ----------------------- |
+| `GET /products`                                         | Public                  |
+| `POST /auth/login`                                      | Public, throttled       |
+| `GET /auth/me`                                          | Valid session           |
+| `POST /auth/logout`                                     | Repeatable revocation   |
+| `GET /addresses`                                        | Current user only       |
+| `POST /quote`, `GET /quote/preview`, `POST /checkout`   | Session + owned address |
+| `GET /orders`, `GET /orders/:id`, `GET /inventory/lots` | Admin only              |
 
 Guard Nest endpoints and Next admin layout plus every privileged fetch. Return 401 anonymous, 403 authenticated wrong-role. For browser mutations login/logout/checkout, reject missing/untrusted `Origin` and match configured origins exactly. Nest uses Next-forwarded bearer, not browser-cookie auth. Require HTTPS and no permissive credentialed CORS. Rate-limit by trusted source + normalized account; do not trust arbitrary forwarded IP. Use maintained throttler or bounded adapter, documenting single-instance memory limits. Generic credential errors; distinct validation/429/outage. Redact secrets; `Cache-Control: no-store` for auth/private data; fail closed on lookup outage.
 
@@ -155,6 +155,7 @@ Use exact string/bigint computations. Idempotency key is stable for one unchange
 ## 10. Implementation phases
 
 ### Phase 0 — Contracts and baseline
+
 **Dependencies:** none.
 
 Write failing API regressions for forged headers, quote/checkout contracts, and failure-as-empty; define stable DTO/error contracts; add minimal web Vitest/RTL/jsdom and Playwright scripts/config; split API unit and Docker integration commands; document current root-test behavior without claiming green.
@@ -162,6 +163,7 @@ Write failing API regressions for forged headers, quote/checkout contracts, and 
 **Acceptance:** regressions reproduce current bypass/gaps and intended runners are discoverable.
 
 ### Phase 1 — Schema, fixtures, cryptography
+
 **Dependencies:** Phase 0.
 
 Add new migrations/backfill, importable fixtures and guarded atomic seed, env examples, chosen password adapter, and discoverable seed integration specs. Verify fresh and upgrade migrations and seed twice.
@@ -169,6 +171,7 @@ Add new migrations/backfill, importable fixtures and guarded atomic seed, env ex
 **Acceptance:** exact 16/27/27 plus 3 users/addresses; second run preserves counts, hashes, role/enabled, edited addresses, reservations, quantities, versions; missing secrets/collisions fail atomically.
 
 ### Phase 2 — Nest IAM and authorization
+
 **Dependencies:** Phase 1.
 
 Add IAM domain/application ports/adapters/API and `iam.module`; login/me/logout, session/principal resolution, expiry, guards, origin policy, throttling, redaction; update app composition/controllers as necessary; remove identity-header trust.
@@ -176,6 +179,7 @@ Add IAM domain/application ports/adapters/API and `iam.module`; login/me/logout,
 **Acceptance:** login/me/repeat logout work; 401/403 differ; forged headers grant nothing; expiry/revoke/disable/demotion apply next request.
 
 ### Phase 3 — Catalog, inventory, addresses, quote
+
 **Dependencies:** catalog needs Phase 1; addresses need Phase 2.
 
 Add catalog service/query port/DTO/scoped Prisma repository/products controller/module; inventory read port; pricing parent-product visibility; owned-address query/controller/adapter; application-layer address-aware quote.
@@ -183,6 +187,7 @@ Add catalog service/query port/DTO/scoped Prisma repository/products controller/
 **Acceptance:** DB supplies all 16 public products; hidden variants are not displayed/purchased; foreign address denied; selected province used.
 
 ### Phase 4 — Next auth and protected server data
+
 **Dependencies:** Phase 2.
 
 Add server helpers, auth context/types/routes/UI, secure cookie/token stripping, safe redirect handling, header matrix, protected admin layout/pages, address route, and corrected authenticated proxies. Admin pages call backend helper and render failures explicitly.
@@ -190,6 +195,7 @@ Add server helpers, auth context/types/routes/UI, secure cookie/token stripping,
 **Acceptance:** refresh/logout/role matrix works without privilege flash; raw token never reaches browser storage/JSON; direct admin UI/API access denied; no fixed headers, self-fetch, or failure-as-empty.
 
 ### Phase 5 — Storefront and shopping integration
+
 **Dependencies:** Phases 3 + 4.
 
 Replace fixture array with typed DB loading; build hero/search/filter/cards/variants/images/states; improve cart; implement owned-address exact checkout, VND DTOs, errors/success/UNKNOWN, 401 clearing, and attempt keys; refine existing UI/tokens for accessibility/responsiveness.
@@ -197,6 +203,7 @@ Replace fixture array with typed DB loading; build hero/search/filter/cards/vari
 **Acceptance:** full desired shopping flow uses real API without hard-coded catalog/identity, unsafe money, or unsafe repeated payment.
 
 ### Phase 6 — Security integration and docs
+
 **Dependencies:** all phases.
 
 Run unit, real PostgreSQL, web, and browser matrices including real concurrency. Reconcile README/CLAUDE with actual counts/commands, seed/setup/session/deployment, image provenance, persistent volume/reset, and payment/throttle limitations. Mark unrun tests explicitly.

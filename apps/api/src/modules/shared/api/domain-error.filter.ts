@@ -1,4 +1,13 @@
-import { ArgumentsHost, Catch, ConflictException, ExceptionFilter, ForbiddenException, HttpStatus, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ConflictException,
+  ExceptionFilter,
+  ForbiddenException,
+  HttpStatus,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 import { DomainError } from '../domain/domain-error';
 

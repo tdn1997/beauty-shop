@@ -9,7 +9,10 @@ import { OutboxDispatcher } from './application/outbox-dispatcher';
 import { OutboxRepository } from './application/outbox-repository';
 import { LogNotificationAdapter } from './infrastructure/log-notification.adapter';
 import { OutboxWorker } from './infrastructure/outbox.worker';
-import { OutboxPrismaClient, PrismaOutboxRepository } from './infrastructure/prisma-outbox.repository';
+import {
+  OutboxPrismaClient,
+  PrismaOutboxRepository,
+} from './infrastructure/prisma-outbox.repository';
 
 export const OUTBOX_REPOSITORY = Symbol('OutboxRepository');
 export const NOTIFICATION_PORT = Symbol('NotificationPort');

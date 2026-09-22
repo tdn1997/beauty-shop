@@ -23,7 +23,12 @@ export interface InventoryPrismaClient {
   $executeRaw(query: TemplateStringsArray, ...values: unknown[]): Promise<number>;
   inventoryLot: {
     findUnique(args: { where: { id: string } }): Promise<InventoryLotRow | null>;
-    findMany(args: { where: Record<string, unknown>; skip: number; take: number; orderBy: { id: string } }): Promise<InventoryLotRow[]>;
+    findMany(args: {
+      where: Record<string, unknown>;
+      skip: number;
+      take: number;
+      orderBy: { id: string };
+    }): Promise<InventoryLotRow[]>;
     count(args: { where: Record<string, unknown> }): Promise<number>;
   };
 }
@@ -42,7 +47,11 @@ export class PrismaInventoryRepository implements InventoryRepository {
     return row ? InventoryLot.rehydrate(toSnapshot(row)) : null;
   }
 
-  async list(variantId: string | null, page: number, limit: number): Promise<PaginatedInventoryLots> {
+  async list(
+    variantId: string | null,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedInventoryLots> {
     const where = variantId ? { variantId } : {};
     const skip = (page - 1) * limit;
     const [rows, total] = await Promise.all([
@@ -97,9 +106,7 @@ export class PrismaInventoryRepository implements InventoryRepository {
     const row = await this.#clients.current().inventoryLot.findUnique({ where: { id: lotId } });
 
     if (!row) {
-      return Result.err(
-        new DomainError('LOT_NOT_FOUND', `Không tìm thấy lô ${lotId}`, { lotId }),
-      );
+      return Result.err(new DomainError('LOT_NOT_FOUND', `Không tìm thấy lô ${lotId}`, { lotId }));
     }
 
     const lot = InventoryLot.rehydrate(toSnapshot(row));

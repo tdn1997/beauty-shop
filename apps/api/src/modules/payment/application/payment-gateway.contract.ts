@@ -17,7 +17,11 @@ export function describePaymentGatewayContract(
       it(`should preserve ${status} through initiation and query`, async () => {
         // arrange
         const { gateway } = createGateway(status);
-        const initiation = { orderId: 'order_1', amount: Money.parse('9007199254740993', 'VND'), returnUrl: 'https://shop.test/return' };
+        const initiation = {
+          orderId: 'order_1',
+          amount: Money.parse('9007199254740993', 'VND'),
+          returnUrl: 'https://shop.test/return',
+        };
         // confirm
         expect(initiation.amount.toMinorUnits()).toBe(9007199254740993n);
         // act
@@ -36,7 +40,13 @@ export function describePaymentGatewayContract(
     it('should return a stable error for an unknown reference without changing existing outcomes', async () => {
       // arrange
       const { gateway } = createGateway(PaymentStatus.Paid);
-      const outcome = (await gateway.initiate({ orderId: 'order_1', amount: Money.parse('1', 'VND'), returnUrl: 'https://shop.test/return' })).unwrap();
+      const outcome = (
+        await gateway.initiate({
+          orderId: 'order_1',
+          amount: Money.parse('1', 'VND'),
+          returnUrl: 'https://shop.test/return',
+        })
+      ).unwrap();
       // confirm
       expect(outcome.status).toBe(PaymentStatus.Paid);
       // act
@@ -49,7 +59,11 @@ export function describePaymentGatewayContract(
     it('should reject negative amounts without consuming a payment', async () => {
       // arrange
       const { gateway } = createGateway(PaymentStatus.Paid);
-      const initiation = { orderId: 'order_1', amount: Money.parse('-1', 'VND'), returnUrl: 'https://shop.test/return' };
+      const initiation = {
+        orderId: 'order_1',
+        amount: Money.parse('-1', 'VND'),
+        returnUrl: 'https://shop.test/return',
+      };
       // confirm
       expect(initiation.amount.isNegative()).toBe(true);
       // act
@@ -57,7 +71,10 @@ export function describePaymentGatewayContract(
       // assert
       expect(result.errorOrNull()?.code).toBe('PAYMENT_AMOUNT_INVALID');
       expect(initiation.amount.toMinorUnits()).toBe(-1n);
-      expect((await gateway.initiate({ ...initiation, amount: Money.parse('1', 'VND') })).unwrap().status).toBe(PaymentStatus.Paid);
+      expect(
+        (await gateway.initiate({ ...initiation, amount: Money.parse('1', 'VND') })).unwrap()
+          .status,
+      ).toBe(PaymentStatus.Paid);
     });
   });
 }

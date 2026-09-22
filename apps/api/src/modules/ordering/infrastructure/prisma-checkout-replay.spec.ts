@@ -12,5 +12,8 @@ it('should claim checkout keys without aborting the transaction on a duplicate',
   const claimed = await replay.reserve('customer', 'key', 'hash');
   // assert
   expect(claimed).toBe(false);
-  expect(createMany).toHaveBeenCalledWith({ data: [{ customerId: 'customer', key: 'key', requestHash: 'hash', status: 'IN_PROGRESS' }], skipDuplicates: true });
+  expect(createMany).toHaveBeenCalledWith({
+    data: [{ customerId: 'customer', key: 'key', requestHash: 'hash', status: 'IN_PROGRESS' }],
+    skipDuplicates: true,
+  });
 });

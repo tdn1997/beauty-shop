@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 export interface CartItem {
   variantId: string;
@@ -75,25 +83,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return newKey;
   }, []);
 
-  const addItem = useCallback(
-    (item: Omit<CartItem, 'quantity'>, quantity = 1) => {
-      setCart((prev) => {
-        const existing = prev.items.find((i) => i.variantId === item.variantId);
-        let nextItems: CartItem[];
-        if (existing) {
-          nextItems = prev.items.map((i) =>
-            i.variantId === item.variantId ? { ...i, quantity: i.quantity + quantity } : i,
-          );
-        } else {
-          nextItems = [...prev.items, { ...item, quantity }];
-        }
-        const next = { ...prev, items: nextItems };
-        saveCart(next);
-        return next;
-      });
-    },
-    [],
-  );
+  const addItem = useCallback((item: Omit<CartItem, 'quantity'>, quantity = 1) => {
+    setCart((prev) => {
+      const existing = prev.items.find((i) => i.variantId === item.variantId);
+      let nextItems: CartItem[];
+      if (existing) {
+        nextItems = prev.items.map((i) =>
+          i.variantId === item.variantId ? { ...i, quantity: i.quantity + quantity } : i,
+        );
+      } else {
+        nextItems = [...prev.items, { ...item, quantity }];
+      }
+      const next = { ...prev, items: nextItems };
+      saveCart(next);
+      return next;
+    });
+  }, []);
 
   const removeItem = useCallback((variantId: string) => {
     setCart((prev) => {
@@ -115,9 +120,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setCart((prev) => {
-      const nextItems = prev.items.map((i) =>
-        i.variantId === variantId ? { ...i, quantity } : i,
-      );
+      const nextItems = prev.items.map((i) => (i.variantId === variantId ? { ...i, quantity } : i));
       const next = { ...prev, items: nextItems };
       saveCart(next);
       return next;
@@ -141,10 +144,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return newKey;
   }, [cart.items, refreshKey]);
 
-  const totalItems = useMemo(() => cart.items.reduce((sum, i) => sum + i.quantity, 0), [cart.items]);
+  const totalItems = useMemo(
+    () => cart.items.reduce((sum, i) => sum + i.quantity, 0),
+    [cart.items],
+  );
 
   return (
-    <CartContext.Provider value={{ cart, addItem, removeItem, updateQuantity, clearCart, getIdempotencyKey, totalItems }}>
+    <CartContext.Provider
+      value={{
+        cart,
+        addItem,
+        removeItem,
+        updateQuantity,
+        clearCart,
+        getIdempotencyKey,
+        totalItems,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );

@@ -40,10 +40,22 @@ export interface SalesOrderRow extends SalesOrderWriteRow {
 
 export interface OrderPrismaClient {
   salesOrder: {
-    findUnique(args: { where: { id: string }; include: { lines: true } }): Promise<SalesOrderRow | null>;
-    create(args: { data: SalesOrderWriteRow & { lines: { create: OrderLineWriteRow[] } } }): Promise<unknown>;
-    updateMany(args: { where: { id: string; version: number }; data: SalesOrderWriteRow }): Promise<{ count: number }>;
-    findMany(args: { skip: number; take: number; orderBy: { id: string } }): Promise<SalesOrderRow[]>;
+    findUnique(args: {
+      where: { id: string };
+      include: { lines: true };
+    }): Promise<SalesOrderRow | null>;
+    create(args: {
+      data: SalesOrderWriteRow & { lines: { create: OrderLineWriteRow[] } };
+    }): Promise<unknown>;
+    updateMany(args: {
+      where: { id: string; version: number };
+      data: SalesOrderWriteRow;
+    }): Promise<{ count: number }>;
+    findMany(args: {
+      skip: number;
+      take: number;
+      orderBy: { id: string };
+    }): Promise<SalesOrderRow[]>;
     count(): Promise<number>;
   };
   orderLine: {

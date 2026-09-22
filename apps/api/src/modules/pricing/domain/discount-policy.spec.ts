@@ -21,7 +21,10 @@ function line(unitPrice: string, quantity: number): QuoteLine {
   });
 }
 
-function contextOf(itemsTotal: string, lines: readonly QuoteLine[] = [line('100000', 1)]): DiscountContext {
+function contextOf(
+  itemsTotal: string,
+  lines: readonly QuoteLine[] = [line('100000', 1)],
+): DiscountContext {
   return {
     customerId: 'cus_1',
     lines,
@@ -167,25 +170,36 @@ describe('PercentageDiscountPolicy', () => {
     ['500005', 1000, '100000', '50001'],
     ['2000000', 1000, '100000', '100000'],
     ['500000', 20000, '900000', '500000'],
-  ])('should apply threshold percent rounding cap and base limit for %s', (base, basisPoints, cap, expected) => {
-    // arrange
-    const policy = PercentageDiscountPolicy.create({
-      code: 'THRESHOLD_PERCENT',
-      minimumSpend: Money.parse('500000', 'VND'),
-      basisPoints: Number(basisPoints),
-      cap: Money.parse(cap, 'VND'),
-    });
-    const context = contextOf(base);
-    const snapshot = () => ({ customerId: context.customerId, itemsTotal: context.itemsTotal.toString(), lines: context.lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity, price: line.unitPrice.toString() })) });
-    const before = snapshot();
-    // confirm
-    expect(context.itemsTotal.toString()).toBe(`${base} VND`);
-    // act
-    const discount = policy.discountFor(context);
-    // assert
-    expect(discount.toString()).toBe(`${expected} VND`);
-    expect(snapshot()).toEqual(before);
-  });
+  ])(
+    'should apply threshold percent rounding cap and base limit for %s',
+    (base, basisPoints, cap, expected) => {
+      // arrange
+      const policy = PercentageDiscountPolicy.create({
+        code: 'THRESHOLD_PERCENT',
+        minimumSpend: Money.parse('500000', 'VND'),
+        basisPoints: Number(basisPoints),
+        cap: Money.parse(cap, 'VND'),
+      });
+      const context = contextOf(base);
+      const snapshot = () => ({
+        customerId: context.customerId,
+        itemsTotal: context.itemsTotal.toString(),
+        lines: context.lines.map((line) => ({
+          variantId: line.variantId,
+          quantity: line.quantity,
+          price: line.unitPrice.toString(),
+        })),
+      });
+      const before = snapshot();
+      // confirm
+      expect(context.itemsTotal.toString()).toBe(`${base} VND`);
+      // act
+      const discount = policy.discountFor(context);
+      // assert
+      expect(discount.toString()).toBe(`${expected} VND`);
+      expect(snapshot()).toEqual(before);
+    },
+  );
 
   it('should take the configured basis points off the basket', () => {
     // arrange

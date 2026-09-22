@@ -47,7 +47,10 @@ export class PrismaOutboxRepository implements OutboxRepository {
 
   async save(event: OutboxEvent): Promise<Result<void>> {
     if (event.persistedVersion === null) {
-      throw new DomainError('INVALID_OUTBOX_EVENT', 'Phải append sự kiện trước khi ghi kết quả gửi');
+      throw new DomainError(
+        'INVALID_OUTBOX_EVENT',
+        'Phải append sự kiện trước khi ghi kết quả gửi',
+      );
     }
     const snapshot = event.toSnapshot();
     const { count } = await this.#clients.current().outboxEvent.updateMany({
@@ -60,10 +63,12 @@ export class PrismaOutboxRepository implements OutboxRepository {
       },
     });
     if (count === 0) {
-      return Result.err(new DomainError('CONCURRENT_MODIFICATION', 'Sự kiện đã bị thay đổi', {
-        eventId: event.id,
-        expectedVersion: event.persistedVersion,
-      }));
+      return Result.err(
+        new DomainError('CONCURRENT_MODIFICATION', 'Sự kiện đã bị thay đổi', {
+          eventId: event.id,
+          expectedVersion: event.persistedVersion,
+        }),
+      );
     }
     event.markPersisted();
     return Result.ok(undefined);

@@ -54,11 +54,11 @@ vi phạm thật (cắm file vi phạm → đỏ, gỡ → xanh).
 
 ## Lỗi
 
-| Loại | Cách xử lý |
-|---|---|
-| Nghiệp vụ dự kiến (hết hàng, sai trạng thái, không tìm thấy) | trả `Result<T>` với `DomainError` mã ổn định |
-| Vi phạm bất biến (lỗi lập trình) | `throw DomainError` |
-| Hạ tầng (mất kết nối, timeout) | **để nổi lên**, không gói vào `Result`, không nuốt |
+| Loại                                                         | Cách xử lý                                         |
+| ------------------------------------------------------------ | -------------------------------------------------- |
+| Nghiệp vụ dự kiến (hết hàng, sai trạng thái, không tìm thấy) | trả `Result<T>` với `DomainError` mã ổn định       |
+| Vi phạm bất biến (lỗi lập trình)                             | `throw DomainError`                                |
+| Hạ tầng (mất kết nối, timeout)                               | **để nổi lên**, không gói vào `Result`, không nuốt |
 
 `OrderCommandService` chỉ bắt `DomainError`, còn lại rethrow. Có test giữ luật này.
 Mã lỗi là hợp đồng với client — client nhánh theo `code`, không theo message.
@@ -103,8 +103,8 @@ Bất biến được giữ ở **hai** tầng: domain (trong bộ nhớ) và `C
 
 Cạnh tranh thật chỉ chứng minh được bằng Testcontainers + Postgres (Giai đoạn 7) —
 **không** viết "test cạnh tranh" trên Map trong bộ nhớ, đó là test xanh giả.
-Client Prisma giả trong test là tất định: nó kiểm *câu lệnh gửi đi* và *cách dịch
-0 hàng bị sửa*, không giả vờ kiểm cô lập giao dịch.
+Client Prisma giả trong test là tất định: nó kiểm _câu lệnh gửi đi_ và _cách dịch
+0 hàng bị sửa_, không giả vờ kiểm cô lập giao dịch.
 
 Checkout ghi replay UNKNOWN cùng transaction giữ tồn/đơn/outbox trước khi gọi payment.
 Ownership phải kiểm trước replay; Result lỗi phải làm rollback, không commit một phần.

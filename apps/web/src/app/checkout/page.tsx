@@ -1,1 +1,205 @@
-'use client';import Link from'next/link';import{useRouter}from'next/navigation';import{useCart}from'@/lib/cart-context';import{useAuth}from'@/lib/auth/auth-context';import{formatMoney}from'@/lib/format';import{multiplyMinorUnits,sumMinorUnits}from'@/lib/money';import{loadAttempt}from'@/lib/checkout-attempt';import{useEffect,useState}from'react';import{Button}from'@/components/ui/button';import{Alert}from'@/components/ui/alert';import{Spinner}from'@/components/ui/spinner';interface Address{id:string;recipientName:string;line1:string;district:string;province:string}interface Quote{grandTotal:{amount:string;currency:string}}interface Result{orderId:string;quote:Quote;payment:{status:string}}type Step='review'|'placing'|'success'|'error'|'unknown';const ATTEMPT='beautyshop_checkout_attempt';export default function Checkout(){const router=useRouter(),{user}=useAuth(),{cart,clearCart}=useCart();const[addresses,setAddresses]=useState<Address[]>([]),[addressId,setAddressId]=useState(''),[step,setStep]=useState<Step>('review'),[quote,setQuote]=useState<Quote|null>(null),[result,setResult]=useState<Result|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true);useEffect(()=>{void(async()=>{const r=await fetch('/api/addresses',{cache:'no-store'});if(r.status===401){sessionStorage.removeItem(ATTEMPT);router.replace('/login?returnTo=%2Fcheckout');return}if(!r.ok){setError('Không thể tải địa chỉ.');setLoading(false);return}const data:Address[]=await r.json();setAddresses(data);setAddressId(data[0]?.id??'');setLoading(false)})()},[router]);useEffect(()=>{if(!loading&&step==='review'&&cart.items.length===0)router.replace('/cart')},[loading,step,cart.items.length,router]);const lines=cart.items.map(({variantId,quantity})=>({variantId,quantity})).sort((a,b)=>a.variantId.localeCompare(b.variantId));const subtotal=sumMinorUnits(cart.items);async function getQuote(){setError('');const r=await fetch('/api/quote',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({addressId,lines})});if(r.status===401){sessionStorage.removeItem(ATTEMPT);router.replace('/login?returnTo=%2Fcheckout');return}const data=await r.json();if(!r.ok){setError(data.message??'Không thể báo giá.');return}setQuote(data)}async function place(){if(!user||!addressId)return;setStep('placing');setError('');const attempt=loadAttempt({userId:user.id,addressId,currency:'VND',lines},sessionStorage.getItem(ATTEMPT));sessionStorage.setItem(ATTEMPT,JSON.stringify(attempt));try{const r=await fetch('/api/checkout',{method:'POST',headers:{'content-type':'application/json','idempotency-key':attempt.key},body:JSON.stringify({addressId,currency:'VND',lines:attempt.lines})});if(r.status===401){sessionStorage.removeItem(ATTEMPT);setQuote(null);setAddresses([]);setStep('review');router.replace('/login?returnTo=%2Fcheckout');return}const data=await r.json();if(!r.ok)throw new Error(data.message??'Không thể đặt hàng.');setResult(data);setQuote(data.quote);if(data.payment?.status==='UNKNOWN'){setStep('unknown');return}sessionStorage.removeItem(ATTEMPT);clearCart();setStep('success')}catch(e){setError(e instanceof Error?e.message:'Không thể xác định kết quả. Hãy thử lại cùng giao dịch.');setStep('error')}}if(loading)return <main id="main" className="container container--form"><Spinner size="lg"/></main>;if(step==='success'&&result)return <main id="main" className="container container--form"><Alert tone="success" title="Đơn hàng đã được tạo"><p>Mã đơn: {result.orderId}</p><p>Tổng cộng: {formatMoney(result.quote.grandTotal)}</p></Alert><Link className="btn btn--primary" href="/">Tiếp tục mua sắm</Link></main>;return <main id="main" className="container container--form stack gap-4"><h1 className="page-title">Thanh toán</h1>{addresses.length===0?<Alert tone="warn">Bạn chưa có địa chỉ giao hàng.</Alert>:<label className="field"><span className="label">Địa chỉ giao hàng</span><select className="input" value={addressId} onChange={e=>{setAddressId(e.target.value);setQuote(null)}}>{addresses.map(a=><option key={a.id} value={a.id}>{a.recipientName} — {a.line1}, {a.district}, {a.province}</option>)}</select></label>}<section className="card card__body">{cart.items.map(i=><div className="checkout-line" key={i.variantId}><span>{i.name} × {i.quantity}</span><strong>{formatMoney({amount:multiplyMinorUnits(i.price,i.quantity),currency:'VND'})}</strong></div>)}<div className="summary-row summary-row--total"><span>Tổng</span><span>{formatMoney(quote?.grandTotal??{amount:subtotal,currency:'VND'})}</span></div></section>{error&&<Alert tone="danger">{error}</Alert>}{step==='unknown'&&<Alert tone="warn" title="Kết quả thanh toán chưa xác định">Không tạo giao dịch mới. Thử lại sẽ dùng đúng mã yêu cầu hiện tại.</Alert>}<div className="checkout-actions"><Button variant="secondary" disabled={!addressId||step==='placing'} onClick={getQuote}>Xem giá mới</Button><Button disabled={!addressId||step==='placing'} loading={step==='placing'} onClick={place}>{step==='unknown'||step==='error'?'Kiểm tra lại':'Đặt hàng'}</Button></div></main>}
+'use client';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCart } from '@/lib/cart-context';
+import { useAuth } from '@/lib/auth/auth-context';
+import { formatMoney } from '@/lib/format';
+import { multiplyMinorUnits, sumMinorUnits } from '@/lib/money';
+import { loadAttempt } from '@/lib/checkout-attempt';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
+import { Spinner } from '@/components/ui/spinner';
+interface Address {
+  id: string;
+  recipientName: string;
+  line1: string;
+  district: string;
+  province: string;
+}
+interface Quote {
+  grandTotal: { amount: string; currency: string };
+}
+interface Result {
+  orderId: string;
+  quote: Quote;
+  payment: { status: string };
+}
+type Step = 'review' | 'placing' | 'success' | 'error' | 'unknown';
+const ATTEMPT = 'beautyshop_checkout_attempt';
+export default function Checkout() {
+  const router = useRouter(),
+    { user } = useAuth(),
+    { cart, clearCart } = useCart();
+  const [addresses, setAddresses] = useState<Address[]>([]),
+    [addressId, setAddressId] = useState(''),
+    [step, setStep] = useState<Step>('review'),
+    [quote, setQuote] = useState<Quote | null>(null),
+    [result, setResult] = useState<Result | null>(null),
+    [error, setError] = useState(''),
+    [loading, setLoading] = useState(true);
+  useEffect(() => {
+    void (async () => {
+      const r = await fetch('/api/addresses', { cache: 'no-store' });
+      if (r.status === 401) {
+        sessionStorage.removeItem(ATTEMPT);
+        router.replace('/login?returnTo=%2Fcheckout');
+        return;
+      }
+      if (!r.ok) {
+        setError('Không thể tải địa chỉ.');
+        setLoading(false);
+        return;
+      }
+      const data: Address[] = await r.json();
+      setAddresses(data);
+      setAddressId(data[0]?.id ?? '');
+      setLoading(false);
+    })();
+  }, [router]);
+  useEffect(() => {
+    if (!loading && step === 'review' && cart.items.length === 0) router.replace('/cart');
+  }, [loading, step, cart.items.length, router]);
+  const lines = cart.items
+    .map(({ variantId, quantity }) => ({ variantId, quantity }))
+    .sort((a, b) => a.variantId.localeCompare(b.variantId));
+  const subtotal = sumMinorUnits(cart.items);
+  async function getQuote() {
+    setError('');
+    const r = await fetch('/api/quote', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ addressId, lines }),
+    });
+    if (r.status === 401) {
+      sessionStorage.removeItem(ATTEMPT);
+      router.replace('/login?returnTo=%2Fcheckout');
+      return;
+    }
+    const data = await r.json();
+    if (!r.ok) {
+      setError(data.message ?? 'Không thể báo giá.');
+      return;
+    }
+    setQuote(data);
+  }
+  async function place() {
+    if (!user || !addressId) return;
+    setStep('placing');
+    setError('');
+    const attempt = loadAttempt(
+      { userId: user.id, addressId, currency: 'VND', lines },
+      sessionStorage.getItem(ATTEMPT),
+    );
+    sessionStorage.setItem(ATTEMPT, JSON.stringify(attempt));
+    try {
+      const r = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': attempt.key },
+        body: JSON.stringify({ addressId, currency: 'VND', lines: attempt.lines }),
+      });
+      if (r.status === 401) {
+        sessionStorage.removeItem(ATTEMPT);
+        setQuote(null);
+        setAddresses([]);
+        setStep('review');
+        router.replace('/login?returnTo=%2Fcheckout');
+        return;
+      }
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message ?? 'Không thể đặt hàng.');
+      setResult(data);
+      setQuote(data.quote);
+      if (data.payment?.status === 'UNKNOWN') {
+        setStep('unknown');
+        return;
+      }
+      sessionStorage.removeItem(ATTEMPT);
+      clearCart();
+      setStep('success');
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Không thể xác định kết quả. Hãy thử lại cùng giao dịch.',
+      );
+      setStep('error');
+    }
+  }
+  if (loading)
+    return (
+      <main id="main" className="container container--form">
+        <Spinner size="lg" />
+      </main>
+    );
+  if (step === 'success' && result)
+    return (
+      <main id="main" className="container container--form">
+        <Alert tone="success" title="Đơn hàng đã được tạo">
+          <p>Mã đơn: {result.orderId}</p>
+          <p>Tổng cộng: {formatMoney(result.quote.grandTotal)}</p>
+        </Alert>
+        <Link className="btn btn--primary" href="/">
+          Tiếp tục mua sắm
+        </Link>
+      </main>
+    );
+  return (
+    <main id="main" className="container container--form stack gap-4">
+      <h1 className="page-title">Thanh toán</h1>
+      {addresses.length === 0 ? (
+        <Alert tone="warn">Bạn chưa có địa chỉ giao hàng.</Alert>
+      ) : (
+        <label className="field">
+          <span className="label">Địa chỉ giao hàng</span>
+          <select
+            className="input"
+            value={addressId}
+            onChange={(e) => {
+              setAddressId(e.target.value);
+              setQuote(null);
+            }}
+          >
+            {addresses.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.recipientName} — {a.line1}, {a.district}, {a.province}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <section className="card card__body">
+        {cart.items.map((i) => (
+          <div className="checkout-line" key={i.variantId}>
+            <span>
+              {i.name} × {i.quantity}
+            </span>
+            <strong>
+              {formatMoney({ amount: multiplyMinorUnits(i.price, i.quantity), currency: 'VND' })}
+            </strong>
+          </div>
+        ))}
+        <div className="summary-row summary-row--total">
+          <span>Tổng</span>
+          <span>{formatMoney(quote?.grandTotal ?? { amount: subtotal, currency: 'VND' })}</span>
+        </div>
+      </section>
+      {error && <Alert tone="danger">{error}</Alert>}
+      {step === 'unknown' && (
+        <Alert tone="warn" title="Kết quả thanh toán chưa xác định">
+          Không tạo giao dịch mới. Thử lại sẽ dùng đúng mã yêu cầu hiện tại.
+        </Alert>
+      )}
+      <div className="checkout-actions">
+        <Button variant="secondary" disabled={!addressId || step === 'placing'} onClick={getQuote}>
+          Xem giá mới
+        </Button>
+        <Button
+          disabled={!addressId || step === 'placing'}
+          loading={step === 'placing'}
+          onClick={place}
+        >
+          {step === 'unknown' || step === 'error' ? 'Kiểm tra lại' : 'Đặt hàng'}
+        </Button>
+      </div>
+    </main>
+  );
+}

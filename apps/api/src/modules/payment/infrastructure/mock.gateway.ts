@@ -19,7 +19,9 @@ export class MockGateway implements PaymentGateway {
 
   async initiate(initiation: PaymentInitiation): Promise<Result<PaymentOutcome>> {
     if (initiation.amount.isNegative()) {
-      return Result.err(new DomainError('PAYMENT_AMOUNT_INVALID', 'Số tiền thanh toán không được âm'));
+      return Result.err(
+        new DomainError('PAYMENT_AMOUNT_INVALID', 'Số tiền thanh toán không được âm'),
+      );
     }
     const entry = this.#script[this.#cursor] ?? PaymentStatus.Unknown;
     this.#cursor += 1;
@@ -29,7 +31,12 @@ export class MockGateway implements PaymentGateway {
       status: entry,
       providerRef,
       redirectUrl: null,
-      reason: entry === PaymentStatus.Failed ? 'Thẻ bị từ chối' : entry === PaymentStatus.Unknown ? 'Chưa rõ kết quả' : null,
+      reason:
+        entry === PaymentStatus.Failed
+          ? 'Thẻ bị từ chối'
+          : entry === PaymentStatus.Unknown
+            ? 'Chưa rõ kết quả'
+            : null,
     });
     this.#outcomes.set(providerRef, outcome);
     return Result.ok(outcome);
@@ -37,6 +44,8 @@ export class MockGateway implements PaymentGateway {
 
   async query(providerRef: string): Promise<Result<PaymentOutcome>> {
     const outcome = this.#outcomes.get(providerRef);
-    return outcome ? Result.ok(outcome) : Result.err(new DomainError('PAYMENT_REF_NOT_FOUND', 'Không tìm thấy mã thanh toán'));
+    return outcome
+      ? Result.ok(outcome)
+      : Result.err(new DomainError('PAYMENT_REF_NOT_FOUND', 'Không tìm thấy mã thanh toán'));
   }
 }

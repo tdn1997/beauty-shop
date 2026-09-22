@@ -21,7 +21,12 @@ it('should reject client supplied customer prices and lot identities', async () 
   // arrange
   const placeOrder = vi.fn();
   const controller = new CheckoutController({ placeOrder } as never);
-  const body = { customerId: 'other', addressId: 'address', currency: 'VND', lines: [{ variantId: 'variant', quantity: 1, lotId: 'arbitrary', price: '1' }] };
+  const body = {
+    customerId: 'other',
+    addressId: 'address',
+    currency: 'VND',
+    lines: [{ variantId: 'variant', quantity: 1, lotId: 'arbitrary', price: '1' }],
+  };
   const before = structuredClone(body);
   // confirm
   expect(placeOrder).not.toHaveBeenCalled();

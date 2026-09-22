@@ -10,39 +10,106 @@ import { DomainError } from '../../shared/domain/domain-error';
 import { PaymentInitiation } from '../../payment/application/payment-gateway';
 import { PaymentStatus } from '../../payment/domain/payment-status';
 
-const request = { addressId: 'address', currency: 'VND' as const, lines: [{ variantId: 'variant', quantity: 2 }] };
+const request = {
+  addressId: 'address',
+  currency: 'VND' as const,
+  lines: [{ variantId: 'variant', quantity: 2 }],
+};
 const principal = { customerId: 'customer' };
 
 function fixture() {
-  const state = { orders: [] as unknown[], events: [] as unknown[], reservations: 0, record: null as any };
+  const state = {
+    orders: [] as unknown[],
+    events: [] as unknown[],
+    reservations: 0,
+    record: null as any,
+  };
   let inTransaction = false;
-  const address = Address.create({ recipientName: 'Name', phone: '0901234567', line1: 'Street', ward: 'Ward', district: 'District', province: 'Province' });
-  const quote = Quote.for({ customerId: 'customer', currency: 'VND', province: 'Province', lines: [QuoteLine.create({ variantId: 'variant', sku: 'SKU', nameSnapshot: 'Product', unitPrice: Money.parse('100000', 'VND'), quantity: 2 })], discount: Money.parse('10000', 'VND'), shippingFee: Money.parse('20000', 'VND') });
+  const address = Address.create({
+    recipientName: 'Name',
+    phone: '0901234567',
+    line1: 'Street',
+    ward: 'Ward',
+    district: 'District',
+    province: 'Province',
+  });
+  const quote = Quote.for({
+    customerId: 'customer',
+    currency: 'VND',
+    province: 'Province',
+    lines: [
+      QuoteLine.create({
+        variantId: 'variant',
+        sku: 'SKU',
+        nameSnapshot: 'Product',
+        unitPrice: Money.parse('100000', 'VND'),
+        quantity: 2,
+      }),
+    ],
+    discount: Money.parse('10000', 'VND'),
+    shippingFee: Money.parse('20000', 'VND'),
+  });
   const initiate = vi.fn(async (_request: PaymentInitiation) => {
     expect(inTransaction).toBe(false);
     expect(state.orders).toHaveLength(1);
     expect(state.events).toHaveLength(1);
     expect(state.record.response.payment.status).toBe(PaymentStatus.Unknown);
-    return Result.ok({ status: PaymentStatus.Paid, providerRef: 'ref', redirectUrl: null, reason: null });
+    return Result.ok({
+      status: PaymentStatus.Paid,
+      providerRef: 'ref',
+      redirectUrl: null,
+      reason: null,
+    });
   });
   const dependencies = {
     addresses: { findOwned: vi.fn(async () => address) },
     quotes: { quoteFor: vi.fn(async () => Result.ok(quote)) },
-    inventory: { reserveForVariant: vi.fn(async () => { state.reservations += 2; return Result.ok(undefined); }) },
-    orders: { save: vi.fn(async (order: any) => { state.orders.push(order.toSnapshot()); return Result.ok(undefined); }) },
-    outbox: { append: vi.fn(async (event: any) => { state.events.push(event.toSnapshot()); return Result.ok(undefined); }) },
+    inventory: {
+      reserveForVariant: vi.fn(async () => {
+        state.reservations += 2;
+        return Result.ok(undefined);
+      }),
+    },
+    orders: {
+      save: vi.fn(async (order: any) => {
+        state.orders.push(order.toSnapshot());
+        return Result.ok(undefined);
+      }),
+    },
+    outbox: {
+      append: vi.fn(async (event: any) => {
+        state.events.push(event.toSnapshot());
+        return Result.ok(undefined);
+      }),
+    },
     replay: {
       find: vi.fn(async () => state.record),
-      reserve: vi.fn(async (customerId: string, key: string, requestHash: string) => { state.record = { customerId, key, requestHash, status: 'IN_PROGRESS', response: null }; return true; }),
-      complete: vi.fn(async (_customer: string, _key: string, response: unknown) => { state.record = { ...state.record, status: 'COMPLETED', response: JSON.parse(JSON.stringify(response)) }; }),
+      reserve: vi.fn(async (customerId: string, key: string, requestHash: string) => {
+        state.record = { customerId, key, requestHash, status: 'IN_PROGRESS', response: null };
+        return true;
+      }),
+      complete: vi.fn(async (_customer: string, _key: string, response: unknown) => {
+        state.record = {
+          ...state.record,
+          status: 'COMPLETED',
+          response: JSON.parse(JSON.stringify(response)),
+        };
+      }),
     },
-    transactions: { run: async <T>(work: () => Promise<T>): Promise<T> => {
-      const before = structuredClone(state);
-      inTransaction = true;
-      try { return await work(); }
-      catch (error) { Object.assign(state, before); throw error; }
-      finally { inTransaction = false; }
-    } },
+    transactions: {
+      run: async <T>(work: () => Promise<T>): Promise<T> => {
+        const before = structuredClone(state);
+        inTransaction = true;
+        try {
+          return await work();
+        } catch (error) {
+          Object.assign(state, before);
+          throw error;
+        } finally {
+          inTransaction = false;
+        }
+      },
+    },
     gateways: new PaymentGatewayRegistry([{ provider: 'mock', initiate, query: vi.fn() }], 'mock'),
     clock: { now: () => new Date('2026-09-17T00:00:00Z') },
     nextId: () => 'order-1',
@@ -52,22 +119,26 @@ function fixture() {
 }
 
 describe('CheckoutService', () => {
-  it.each(['inventory', 'orders'] as const)('should rollback all writes when %s returns Result.err', async (port) => {
-    // arrange
-    const { checkout, state, dependencies, initiate } = fixture();
-    const failure = Result.err<undefined>(new DomainError('OUT_OF_STOCK', 'unavailable'));
-    if (port === 'inventory') dependencies.inventory.reserveForVariant.mockResolvedValueOnce(failure);
-    else dependencies.orders.save.mockResolvedValueOnce(failure);
-    const before = structuredClone(state);
-    // confirm
-    expect(state.record).toBeNull();
-    // act
-    const result = await checkout.placeOrder(principal, 'key', request);
-    // assert
-    expect(result.errorOrNull()?.code).toBe('OUT_OF_STOCK');
-    expect(state).toEqual(before);
-    expect(initiate).not.toHaveBeenCalled();
-  });
+  it.each(['inventory', 'orders'] as const)(
+    'should rollback all writes when %s returns Result.err',
+    async (port) => {
+      // arrange
+      const { checkout, state, dependencies, initiate } = fixture();
+      const failure = Result.err<undefined>(new DomainError('OUT_OF_STOCK', 'unavailable'));
+      if (port === 'inventory')
+        dependencies.inventory.reserveForVariant.mockResolvedValueOnce(failure);
+      else dependencies.orders.save.mockResolvedValueOnce(failure);
+      const before = structuredClone(state);
+      // confirm
+      expect(state.record).toBeNull();
+      // act
+      const result = await checkout.placeOrder(principal, 'key', request);
+      // assert
+      expect(result.errorOrNull()?.code).toBe('OUT_OF_STOCK');
+      expect(state).toEqual(before);
+      expect(initiate).not.toHaveBeenCalled();
+    },
+  );
   it('should rollback all writes if the initial durable response cannot be saved', async () => {
     // arrange
     const { checkout, state, dependencies, initiate } = fixture();
@@ -105,7 +176,8 @@ describe('CheckoutService', () => {
     const { checkout, state, dependencies, initiate } = fixture();
     const complete = dependencies.replay.complete.getMockImplementation()!;
     dependencies.replay.complete.mockImplementation(async (customer, key, response) => {
-      if (state.orders.length && state.record.status === 'COMPLETED') throw new Error('response save failed');
+      if (state.orders.length && state.record.status === 'COMPLETED')
+        throw new Error('response save failed');
       await complete(customer, key, response);
     });
     // confirm
@@ -124,7 +196,9 @@ describe('CheckoutService', () => {
   it('should rollback reservations order and replay when append returns Result.err', async () => {
     // arrange
     const { checkout, state, dependencies, initiate } = fixture();
-    dependencies.outbox.append.mockResolvedValueOnce(Result.err(new DomainError('CONCURRENT_MODIFICATION', 'conflict')));
+    dependencies.outbox.append.mockResolvedValueOnce(
+      Result.err(new DomainError('CONCURRENT_MODIFICATION', 'conflict')),
+    );
     const before = structuredClone(state);
     // confirm
     expect(state.record).toBeNull();
@@ -160,7 +234,10 @@ describe('CheckoutService', () => {
     // confirm
     expect(state.orders).toHaveLength(1);
     // act
-    const result = await checkout.placeOrder(principal, 'key', { ...request, lines: [{ variantId: 'variant', quantity: 3 }] });
+    const result = await checkout.placeOrder(principal, 'key', {
+      ...request,
+      lines: [{ variantId: 'variant', quantity: 3 }],
+    });
     // assert
     expect(result.errorOrNull()?.code).toBe('IDEMPOTENCY_KEY_REUSED');
     expect(state).toEqual(before);
@@ -187,7 +264,14 @@ describe('CheckoutService', () => {
     const result = await checkout.placeOrder(principal, 'key', request);
     // assert
     expect(result.isOk()).toBe(true);
-    expect(state.orders).toMatchObject([{ customerId: 'customer', status: 'CONFIRMED', discountMinorUnits: 10000n, shippingFeeMinorUnits: 20000n }]);
+    expect(state.orders).toMatchObject([
+      {
+        customerId: 'customer',
+        status: 'CONFIRMED',
+        discountMinorUnits: 10000n,
+        shippingFeeMinorUnits: 20000n,
+      },
+    ]);
     expect(dependencies.inventory.reserveForVariant).toHaveBeenCalledWith('variant', 2);
     expect(initiate.mock.calls[0]?.[0]).toMatchObject({ orderId: 'order-1' });
     expect(initiate.mock.calls[0]?.[0].amount.equals(Money.parse('210000', 'VND'))).toBe(true);

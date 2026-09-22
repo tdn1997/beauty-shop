@@ -12,7 +12,10 @@ import { QuoteService } from '../pricing/application/quote.service';
 import { Clock } from '../shared/domain/clock';
 import { CLOCK } from '../shared/shared.module';
 import { NestHttpExceptionFilter } from '../shared/api/domain-error.filter';
-import { PrismaCheckoutReplay, CheckoutReplayClient } from './infrastructure/prisma-checkout-replay';
+import {
+  PrismaCheckoutReplay,
+  CheckoutReplayClient,
+} from './infrastructure/prisma-checkout-replay';
 import { CheckoutService } from './application/checkout.service';
 import { CheckoutController } from './api/checkout.controller';
 import { AddressController } from './api/address.controller';
@@ -21,7 +24,10 @@ import { OrderController } from './api/order.controller';
 import { CustomerProfileService } from './application/customer-profile.service';
 import { AddressReaderClient, PrismaAddressReader } from './infrastructure/prisma-address-reader';
 import { AddressBookPrismaClient, PrismaAddressBook } from './infrastructure/prisma-address-book';
-import { PrismaInventoryAllocation, AllocationClient } from './infrastructure/prisma-inventory-allocation';
+import {
+  PrismaInventoryAllocation,
+  AllocationClient,
+} from './infrastructure/prisma-inventory-allocation';
 
 import { PrismaTransactionManager } from '../shared/infrastructure/prisma-transaction-manager';
 import { PrismaTransactionClient } from '../shared/infrastructure/prisma.service';
@@ -36,18 +42,72 @@ export const ORDER_REPOSITORY = Symbol('OrderRepository');
 @Module({
   imports: [SharedModule, InventoryModule, NotificationModule, PaymentModule, PricingModule],
   controllers: [CheckoutController, OrderController, AddressController, OwnedQuoteController],
-  providers: [{provide: PrismaAddressBook, inject:[TRANSACTIONS], useFactory:(transactions: PrismaTransactionManager<PrismaTransactionClient>)=>new PrismaAddressBook({current:()=>transactions.current() as unknown as AddressBookPrismaClient})},{provide: CustomerProfileService,inject:[TRANSACTIONS,PrismaAddressBook,QuoteService],useFactory:(transactions:PrismaTransactionManager<PrismaTransactionClient>,book:PrismaAddressBook,quotes:QuoteService)=>new CustomerProfileService(new PrismaAddressReader({current:()=>transactions.current() as unknown as AddressReaderClient}),book,quotes)},
+  providers: [
+    {
+      provide: PrismaAddressBook,
+      inject: [TRANSACTIONS],
+      useFactory: (transactions: PrismaTransactionManager<PrismaTransactionClient>) =>
+        new PrismaAddressBook({
+          current: () => transactions.current() as unknown as AddressBookPrismaClient,
+        }),
+    },
+    {
+      provide: CustomerProfileService,
+      inject: [TRANSACTIONS, PrismaAddressBook, QuoteService],
+      useFactory: (
+        transactions: PrismaTransactionManager<PrismaTransactionClient>,
+        book: PrismaAddressBook,
+        quotes: QuoteService,
+      ) =>
+        new CustomerProfileService(
+          new PrismaAddressReader({
+            current: () => transactions.current() as unknown as AddressReaderClient,
+          }),
+          book,
+          quotes,
+        ),
+    },
     {
       provide: CheckoutService,
-      inject: [TRANSACTIONS, CLOCK, ORDER_REPOSITORY, INVENTORY_REPOSITORY, OUTBOX_REPOSITORY, QuoteService, PAYMENT_GATEWAY_REGISTRY],
-      useFactory: (transactions: PrismaTransactionManager<PrismaTransactionClient>, clock: Clock, orders: OrderRepository, inventory: InventoryRepository, outbox: OutboxRepository, quotes: QuoteService, gateways: PaymentGatewayRegistry) => new CheckoutService({
-        transactions, clock, orders, outbox, quotes, gateways,
-        addresses: new PrismaAddressBook({ current: () => transactions.current() as unknown as AddressBookPrismaClient }),
-        inventory: new PrismaInventoryAllocation({ current: () => transactions.current() as unknown as AllocationClient }, inventory, clock),
-        replay: new PrismaCheckoutReplay({ current: () => transactions.current() as unknown as CheckoutReplayClient }),
-        nextId: randomUUID,
-        returnUrl: process.env.PAYMENT_RETURN_URL ?? 'http://localhost:3000/checkout/payment',
-      }),
+      inject: [
+        TRANSACTIONS,
+        CLOCK,
+        ORDER_REPOSITORY,
+        INVENTORY_REPOSITORY,
+        OUTBOX_REPOSITORY,
+        QuoteService,
+        PAYMENT_GATEWAY_REGISTRY,
+      ],
+      useFactory: (
+        transactions: PrismaTransactionManager<PrismaTransactionClient>,
+        clock: Clock,
+        orders: OrderRepository,
+        inventory: InventoryRepository,
+        outbox: OutboxRepository,
+        quotes: QuoteService,
+        gateways: PaymentGatewayRegistry,
+      ) =>
+        new CheckoutService({
+          transactions,
+          clock,
+          orders,
+          outbox,
+          quotes,
+          gateways,
+          addresses: new PrismaAddressBook({
+            current: () => transactions.current() as unknown as AddressBookPrismaClient,
+          }),
+          inventory: new PrismaInventoryAllocation(
+            { current: () => transactions.current() as unknown as AllocationClient },
+            inventory,
+            clock,
+          ),
+          replay: new PrismaCheckoutReplay({
+            current: () => transactions.current() as unknown as CheckoutReplayClient,
+          }),
+          nextId: randomUUID,
+          returnUrl: process.env.PAYMENT_RETURN_URL ?? 'http://localhost:3000/checkout/payment',
+        }),
     },
     {
       provide: ORDER_REPOSITORY,

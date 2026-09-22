@@ -19,9 +19,12 @@
     "test:unit": "npm test --workspace=@beautyshop/api -- --exclude '**/*.integration.spec.ts'",
     "test:integration": "npm run test:integration --workspace=@beautyshop/api",
     "test:web": "npm test --workspace=@beautyshop/web",
-    "test:e2e": "npm exec --workspace=@beautyshop/web -- playwright test"
+    "test:e2e": "npm exec --workspace=@beautyshop/web -- playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "jsdom": "22.1.0"
+    "jsdom": "22.1.0",
+    "prettier": "3.9.8"
   }
 }

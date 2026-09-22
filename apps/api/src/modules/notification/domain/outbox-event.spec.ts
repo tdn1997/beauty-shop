@@ -21,7 +21,10 @@ describe('OutboxEvent - recording an event', () => {
   it('should isolate the clock reference and dates nested in payload snapshots', () => {
     // arrange
     const instant = new Date(NOW);
-    const event = OutboxEvent.record({ id: 'evt_1', eventType: 'ORDER_CONFIRMED', aggregateId: 'ord_1', payload: { at: instant } }, { now: () => instant });
+    const event = OutboxEvent.record(
+      { id: 'evt_1', eventType: 'ORDER_CONFIRMED', aggregateId: 'ord_1', payload: { at: instant } },
+      { now: () => instant },
+    );
     const before = event.toSnapshot();
     // confirm
     expect(event.occurredAt).toEqual(NOW);
