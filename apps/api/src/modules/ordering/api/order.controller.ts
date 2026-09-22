@@ -1,4 +1,5 @@
 import { Controller, ForbiddenException, Get, Inject, Param, Query, Req, UnauthorizedException } from '@nestjs/common';
+import { Roles } from '../../iam/api/roles.guard';
 import { DomainError } from '../../shared/domain/domain-error';
 import { OrderDto } from '../application/order.dto';
 import { OrderQueryService } from '../application/order-query.service';
@@ -14,6 +15,7 @@ export interface PaginatedOrdersResponse {
   page: number;
 }
 
+@Roles('ADMIN')
 @Controller('orders')
 export class OrderController {
   constructor(@Inject(OrderQueryService) private readonly query: OrderQueryService) {}
@@ -21,7 +23,7 @@ export class OrderController {
   private requireAdmin(request: { user?: unknown }): void {
     const user = request.user;
     if (!user || typeof user !== 'object') throw new UnauthorizedException('Authentication required');
-    if (!('role' in user) || user.role !== 'admin') throw new ForbiddenException('Admin role required');
+    if (!('role' in user) || user.role !== 'ADMIN') throw new ForbiddenException('Admin role required');
   }
 
   @Get()

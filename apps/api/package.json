@@ -12,7 +12,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "test:unit": "vitest run --exclude '**/*.integration.spec.ts'",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -35,6 +37,6 @@
     "testcontainers": "^10.28.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^3.2.6"
   }
 }

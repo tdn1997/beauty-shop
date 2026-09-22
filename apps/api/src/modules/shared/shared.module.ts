@@ -49,7 +49,7 @@ export const TRANSACTIONS = Symbol('TransactionManager');
     },
     { provide: APP_FILTER, useClass: DomainErrorFilter },
   ],
-  exports: [CLOCK, TRANSACTIONS, IdempotencyService],
+  exports: [CLOCK, TRANSACTIONS, IdempotencyService, PrismaService],
 })
 export class SharedModule {}
 

@@ -1,4 +1,5 @@
 import { Body, Controller, Headers, Inject, Post, Req } from '@nestjs/common';
+import { Roles } from '../../iam/api/roles.guard';
 import { DomainError } from '../../shared/domain/domain-error';
 import { CheckoutService } from '../application/checkout.service';
 import { validateCheckoutRequest } from './checkout.request';

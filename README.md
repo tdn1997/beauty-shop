@@ -205,3 +205,26 @@ IT01–IT12: optimistic lock, CHECK constraints, UNIQUE, concurrent stock reserv
 - Web catalog (`apps/web/src/app/page.tsx`) vẫn hard-code danh sách sản phẩm; chưa có
   `GET /products` để web tự tải catalog từ DB — dữ liệu seed hiện chỉ phục vụ tầng API
   (checkout/quote/admin), trang chủ web chưa đọc từ đó.
+
+## Storefront authentication and demo data
+
+The storefront now reads 16 products, 27 variants, and advisory availability from `GET /products`. Authentication uses opaque eight-hour sessions; only a SHA-256 token hash is persisted. The browser receives an HttpOnly, SameSite=Lax, Path=/ cookie (`__Host-beautyshop_session` under production HTTPS, `beautyshop_session` locally). Tokens are never stored in localStorage.
+
+Demo seeding is intentionally opt-in and refuses `NODE_ENV=production`. Before running it against a disposable development database, set `BEAUTYSHOP_DEMO_SEED=true` and provide strong values for `SEED_ADMIN_PASSWORD`, `SEED_CUSTOMER_PASSWORD`, and `SEED_CUSTOMER2_PASSWORD`. Ordinary reruns preserve password/role/enabled/address edits and inventory quantities/reservations/versions. `npm run db:down` retains the volume; destructive volume removal is appropriate only for a confirmed disposable demo database.
+
+Catalog illustrations under `apps/web/public/products/` are original project-authored SVG geometric bottle illustrations, generated for this repository, with no external asset or license dependency. Prices and descriptions are illustrative and make no medical claims. Be Vietnam Pro is currently loaded through `next/font/google`, so a first uncached production build may require font-network access.
+
+Login throttling is bounded in-memory by the trusted socket address and normalized account for a single API instance. Deployments with more than one API replica must replace it with shared rate-limit storage. Payment `UNKNOWN` remains durable and requires reconciliation; retrying checkout reuses the same attempt key and does not initiate a new purchase.
+
+Verification commands are separated by environment:
+
+```bash
+npm run test:unit        # API tests without Docker specs
+npm run test:web         # Vitest + RTL/jsdom
+npm run test:integration # Testcontainers/PostgreSQL specs
+npm run typecheck
+npm run build --workspace=@beautyshop/api
+npm run build --workspace=@beautyshop/web
+npm exec --workspace=@beautyshop/web -- playwright install chromium
+npm run test:e2e
+```

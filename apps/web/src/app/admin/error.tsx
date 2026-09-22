@@ -1,0 +1,1 @@
+'use client';import {Alert} from '@/components/ui/alert';import {Button} from '@/components/ui/button';export default function AdminError({error,reset}:{error:Error;reset:()=>void}){return <section className="empty-state"><Alert tone="danger" title="Không thể tải dữ liệu quản trị">{error.message}</Alert><Button onClick={reset}>Thử lại</Button></section>}

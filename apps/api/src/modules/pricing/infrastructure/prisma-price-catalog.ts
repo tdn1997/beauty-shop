@@ -9,11 +9,12 @@ export interface PricedVariantRow {
   readonly listPrice: bigint;
   readonly currency: string;
   readonly status: 'ACTIVE' | 'DISCONTINUED';
+  readonly product: { readonly status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' };
 }
 
 export interface PriceCatalogPrismaClient {
   productVariant: {
-    findUnique(args: { where: { id: string } }): Promise<PricedVariantRow | null>;
+    findUnique(args: { where: { id: string }; include: { product: true } }): Promise<PricedVariantRow | null>;
   };
 }
 
@@ -31,7 +32,7 @@ export class PrismaPriceCatalog implements PriceCatalog {
 
   async findVariant(variantId: string): Promise<PricedVariant | null> {
     const row = await this.#clients.current().productVariant.findUnique({
-      where: { id: variantId },
+      where: { id: variantId }, include: { product: true },
     });
     if (!row) return null;
 
@@ -40,7 +41,7 @@ export class PrismaPriceCatalog implements PriceCatalog {
       sku: row.sku,
       name: row.name,
       unitPrice: Money.fromMinorUnits(row.listPrice, row.currency as CurrencyCode),
-      sellable: row.status === 'ACTIVE',
+      sellable: row.status === 'ACTIVE' && row.product.status === 'ACTIVE',
     };
   }
 }

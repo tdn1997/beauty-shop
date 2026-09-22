@@ -9,7 +9,9 @@ Kế hoạch đầy đủ 7 giai đoạn: `plans/beautyshop.md`. Trạng thái h
 ## Lệnh
 
 ```bash
-npm test                              # 445 test, Vitest
+npm run test:unit                     # API unit tests (không Docker)
+    npm run test:web                      # Web Vitest/jsdom
+    npm run test:integration              # Testcontainers/PostgreSQL
 npm run typecheck                     # tsc cho cả 2 workspace
 npm run build --workspace=@beautyshop/api
 npm run db:up                         # Postgres qua Docker, cổng 5433
@@ -112,7 +114,6 @@ Mock + adapter sandbox HTTP tổng quát đã có contract test; chưa có provi
 
 Catalog/address giờ đã có persistence thật (`PrismaPriceCatalog`, `PrismaAddressBook`,
 Giai đoạn 8) — không còn adapter rỗng ở composition root, seed cung cấp dữ liệu khớp
-với mock catalog trên web. Vẫn chưa có auth middleware (chỉ trusted `request.user`,
-fail closed) và chưa có `GET /products` để web tự tải catalog động thay vì hard-code.
+với mock catalog trên web. Auth dùng opaque session 8 giờ và Bearer guard; web tải catalog động qua `GET /products`.
 Chưa tự reconciliation UNKNOWN hoặc lưu payment attempt lifecycle ngoài replay.
 `InventoryRepository` chưa có `save`/`create` qua port — seed ghi thẳng qua Prisma Client.

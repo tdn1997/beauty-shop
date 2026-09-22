@@ -1,3 +1,4 @@
+import { Roles } from '../../iam/api/roles.guard';
 import { Controller, ForbiddenException, Get, Inject, Query, Req, UnauthorizedException } from '@nestjs/common';
 import { InventoryLotListDto, PaginatedInventoryLots } from './inventory.dto';
 import { InventoryQueryService } from '../application/inventory-query.service';
@@ -8,6 +9,7 @@ export interface InventoryQuery {
   limit?: number;
 }
 
+@Roles('ADMIN')
 @Controller('inventory')
 export class InventoryController {
   constructor(@Inject(InventoryQueryService) private readonly query: InventoryQueryService) {}
@@ -15,7 +17,7 @@ export class InventoryController {
   private requireAdmin(request: { user?: unknown }): void {
     const user = request.user;
     if (!user || typeof user !== 'object') throw new UnauthorizedException('Authentication required');
-    if (!('role' in user) || user.role !== 'admin') throw new ForbiddenException('Admin role required');
+    if (!('role' in user) || user.role !== 'ADMIN') throw new ForbiddenException('Admin role required');
   }
 
   @Get('lots')

@@ -1,0 +1,1 @@
+export interface CatalogVariantDto{variantId:string;sku:string;displayName:string;price:{amount:string;currency:string};available:number}export interface CatalogProductDto{id:string;name:string;description:string;category:string;imagePath:string|null;imageAlt:string|null;variants:CatalogVariantDto[]}export interface CatalogReader{listPublic(now:Date):Promise<CatalogProductDto[]>}

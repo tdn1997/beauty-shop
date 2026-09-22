@@ -1,0 +1,20 @@
+:root {
+  --c-n-0:#fff; --c-n-50:#faf9f7; --c-n-100:#f4f1ed; --c-n-200:#e8e2dc; --c-n-300:#d6cec5; --c-n-400:#a99f95; --c-n-500:#7b7168; --c-n-600:#5f574f; --c-n-700:#48413b; --c-n-800:#302b27; --c-n-900:#1f1b18;
+  --c-p-50:#fff1f5; --c-p-100:#ffe4ec; --c-p-200:#fecddc; --c-p-300:#f9a8c0; --c-p-400:#ef789e; --c-p-500:#e05583; --c-p-600:#c43d6a; --c-p-700:#a52f57; --c-p-800:#882947; --c-p-900:#71263e;
+  --c-a-300:#e6c9a8; --c-a-500:#d4a373; --c-a-700:#b3824f;
+  --success-fg:#166534; --success-bg:#dcfce7; --success-bd:#86efac;
+  --warn-fg:#854d0e; --warn-bg:#fef9c3; --warn-bd:#fde047;
+  --danger-fg:#991b1b; --danger-bg:#fee2e2; --danger-bd:#fca5a5;
+  --info-fg:#1e40af; --info-bg:#dbeafe; --info-bd:#93c5fd;
+  --bg-page:var(--c-n-50); --bg-surface:var(--c-n-0); --bg-subtle:var(--c-n-100); --bg-inverse:var(--c-n-900);
+  --fg-default:var(--c-n-900); --fg-muted:var(--c-n-600); --fg-subtle:var(--c-n-500); --fg-on-primary:#fff; --fg-on-inverse:#fff;
+  --bd-default:var(--c-n-200); --bd-strong:var(--c-n-400); --focus-ring:var(--c-p-600); --focus-ring-inverse:var(--c-p-200);
+  --sp-1:.25rem; --sp-2:.5rem; --sp-3:.75rem; --sp-4:1rem; --sp-5:1.25rem; --sp-6:1.5rem; --sp-8:2rem; --sp-10:2.5rem; --sp-12:3rem; --sp-16:4rem;
+  --font-sans:var(--font-be-vietnam),system-ui,-apple-system,"Segoe UI",sans-serif; --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --fs-xs:.75rem; --fs-sm:.875rem; --fs-base:1rem; --fs-lg:1.125rem; --fs-xl:1.25rem; --fs-2xl:1.5rem; --fs-3xl:clamp(1.75rem,4vw,2.5rem);
+  --lh-tight:1.2; --lh-normal:1.5; --lh-relaxed:1.7; --fw-normal:400; --fw-medium:500; --fw-semibold:600; --fw-bold:700;
+  --r-sm:.375rem; --r-md:.625rem; --r-lg:.875rem; --r-xl:1.25rem; --r-pill:999px;
+  --sh-xs:0 1px 2px rgb(31 27 24/.06); --sh-sm:0 2px 8px rgb(31 27 24/.08); --sh-md:0 8px 24px rgb(31 27 24/.1); --sh-lg:0 18px 45px rgb(31 27 24/.14);
+  --dur-fast:120ms; --dur-base:200ms; --ease:cubic-bezier(.2,.8,.2,1);
+  --container:72rem; --container-narrow:44rem; --container-form:34rem; --header-h:3.5rem; --sidebar-w:15rem; --z-header:20; --z-overlay:40;
+}

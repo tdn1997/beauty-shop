@@ -1,0 +1,1 @@
+import Link from 'next/link';import {EmptyState} from '@/components/ui/empty-state';export default function NotFound(){return <main id="main" className="container container--narrow"><EmptyState icon="404" title="Không tìm thấy trang" description="Trang bạn tìm kiếm không tồn tại." action={<Link className="btn btn--primary" href="/">Về trang chủ</Link>}/></main>}

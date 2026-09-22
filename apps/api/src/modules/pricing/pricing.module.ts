@@ -6,7 +6,6 @@ import { PrismaTransactionManager } from '../shared/infrastructure/prisma-transa
 import { PrismaTransactionClient } from '../shared/infrastructure/prisma.service';
 import { PriceCatalog } from './application/price-catalog';
 import { QuoteService } from './application/quote.service';
-import { QuoteController } from './api/quote.controller';
 import {
   DiscountPolicy,
   PercentageDiscountPolicy,
@@ -27,7 +26,7 @@ export const SHIPPING_POLICY = Symbol('ShippingPolicy');
 
 @Module({
   imports: [SharedModule],
-  controllers: [QuoteController],
+  controllers: [],
   providers: [
     {
       provide: PRICE_CATALOG,

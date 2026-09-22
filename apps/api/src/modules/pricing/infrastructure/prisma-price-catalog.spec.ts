@@ -14,7 +14,7 @@ function row(overrides: Partial<PricedVariantRow> = {}): PricedVariantRow {
     name: 'Serum dưỡng ẩm',
     listPrice: 199000n,
     currency: 'VND',
-    status: 'ACTIVE',
+    status: 'ACTIVE', product: { status: 'ACTIVE' },
     ...overrides,
   };
 }

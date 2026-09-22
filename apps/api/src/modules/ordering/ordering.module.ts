@@ -15,7 +15,11 @@ import { NestHttpExceptionFilter } from '../shared/api/domain-error.filter';
 import { PrismaCheckoutReplay, CheckoutReplayClient } from './infrastructure/prisma-checkout-replay';
 import { CheckoutService } from './application/checkout.service';
 import { CheckoutController } from './api/checkout.controller';
+import { AddressController } from './api/address.controller';
+import { OwnedQuoteController } from './api/owned-quote.controller';
 import { OrderController } from './api/order.controller';
+import { CustomerProfileService } from './application/customer-profile.service';
+import { AddressReaderClient, PrismaAddressReader } from './infrastructure/prisma-address-reader';
 import { AddressBookPrismaClient, PrismaAddressBook } from './infrastructure/prisma-address-book';
 import { PrismaInventoryAllocation, AllocationClient } from './infrastructure/prisma-inventory-allocation';
 
@@ -31,8 +35,8 @@ export const ORDER_REPOSITORY = Symbol('OrderRepository');
 
 @Module({
   imports: [SharedModule, InventoryModule, NotificationModule, PaymentModule, PricingModule],
-  controllers: [CheckoutController, OrderController],
-  providers: [
+  controllers: [CheckoutController, OrderController, AddressController, OwnedQuoteController],
+  providers: [{provide: PrismaAddressBook, inject:[TRANSACTIONS], useFactory:(transactions: PrismaTransactionManager<PrismaTransactionClient>)=>new PrismaAddressBook({current:()=>transactions.current() as unknown as AddressBookPrismaClient})},{provide: CustomerProfileService,inject:[TRANSACTIONS,PrismaAddressBook,QuoteService],useFactory:(transactions:PrismaTransactionManager<PrismaTransactionClient>,book:PrismaAddressBook,quotes:QuoteService)=>new CustomerProfileService(new PrismaAddressReader({current:()=>transactions.current() as unknown as AddressReaderClient}),book,quotes)},
     {
       provide: CheckoutService,
       inject: [TRANSACTIONS, CLOCK, ORDER_REPOSITORY, INVENTORY_REPOSITORY, OUTBOX_REPOSITORY, QuoteService, PAYMENT_GATEWAY_REGISTRY],

@@ -9,6 +9,7 @@ import { PercentageDiscountPolicy } from './domain/discount-policy';
 import { FreeOverThresholdShippingPolicy } from './domain/shipping-policy';
 import { InMemoryPriceCatalog } from './infrastructure/in-memory-price-catalog';
 import { PrismaPriceCatalog } from './infrastructure/prisma-price-catalog';
+import { TRANSACTIONS } from '../shared/shared.module';
 import { DISCOUNT_POLICY, PRICE_CATALOG, PricingModule, SHIPPING_POLICY } from './pricing.module';
 
 describe('PricingModule', () => {
@@ -18,7 +19,7 @@ describe('PricingModule', () => {
     // confirm
     expect(new Set([PRICE_CATALOG, DISCOUNT_POLICY, SHIPPING_POLICY]).size).toBe(3);
     // act
-    const module = await builder.compile();
+    const module = await builder.overrideProvider(TRANSACTIONS).useValue({ current: () => ({ productVariant: { findUnique: async () => null } }) }).compile();
     // assert
     expect(module.get(QuoteService)).toBeInstanceOf(QuoteService);
     expect(module.get(PRICE_CATALOG)).toBeInstanceOf(PrismaPriceCatalog);

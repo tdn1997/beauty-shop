@@ -28,14 +28,11 @@ interface CartContextValue {
 const CART_STORAGE_KEY = 'beautyshop_cart';
 const CartContext = createContext<CartContextValue | null>(null);
 
-async function computeKey(items: CartItem[]): Promise<string> {
+async function canonical(items: CartItem[]): Promise<string> {
   const data = items
     .map((i) => ({ variantId: i.variantId, quantity: i.quantity }))
     .sort((a, b) => a.variantId.localeCompare(b.variantId));
-  const bytes = new TextEncoder().encode(JSON.stringify(data));
-  const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return JSON.stringify(data);
 }
 
 function loadCart(): Cart {
@@ -68,7 +65,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshKey = useCallback(async (items: CartItem[]): Promise<string> => {
-    const newKey = await computeKey(items);
+    const newKey = crypto.randomUUID();
     setCart((prev) => {
       const next = { items, idempotencyKey: newKey };
       saveCart(next);
@@ -137,7 +134,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const getIdempotencyKey = useCallback(async (): Promise<string> => {
     const currentKey = prevKeyRef.current;
     const items = cart.items;
-    const newKey = await computeKey(items);
+    const newKey = crypto.randomUUID();
     if (newKey !== currentKey) {
       await refreshKey(items);
     }
