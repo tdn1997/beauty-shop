@@ -466,6 +466,126 @@ a {
   display: inline-flex;
   min-width: 1.45rem;
 }
+.auth-nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.auth-nav__placeholder {
+  display: inline-block;
+  width: 6.5rem;
+  height: 2.25rem;
+}
+.auth-nav__error {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--r-sm);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0.2rem 0.75rem 0.2rem 0.2rem;
+  border: 1px solid var(--bd-default);
+  border-radius: var(--r-pill);
+  background: var(--bg-surface);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+.user-chip__avatar {
+  width: 1.9rem;
+  height: 1.9rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-p-400), var(--c-p-700));
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: var(--fw-bold);
+}
+.login {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - var(--header-h) - 6rem);
+}
+.login__card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  width: min(100%, 56rem);
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-md);
+}
+.login__art {
+  position: relative;
+  min-height: 100%;
+  background: var(--c-p-50);
+}
+.login__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.login__art-caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-8) var(--sp-6) var(--sp-6);
+  background: linear-gradient(to top, rgb(31 27 24/0.75), transparent);
+  color: #fff;
+}
+.login__art-caption strong {
+  font-size: var(--fs-xl);
+}
+.login__form {
+  display: grid;
+  gap: var(--sp-5);
+  align-content: center;
+  padding: var(--sp-10) var(--sp-8);
+}
+.password-field {
+  position: relative;
+  display: flex;
+}
+.password-field .input {
+  flex: 1;
+  padding-right: 4rem;
+}
+.password-field__toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  transform: translateY(-50%);
+  min-height: 2rem;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--bg-subtle);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.demo-accounts {
+  display: grid;
+  gap: var(--sp-2);
+  padding-top: var(--sp-4);
+  border-top: 1px dashed var(--bd-default);
+}
+.demo-accounts__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
 .site-footer {
   padding: var(--sp-8) var(--sp-4);
   border-top: 1px solid var(--bd-default);
@@ -998,6 +1118,21 @@ a {
   }
 }
 @media (max-width: 48rem) {
+  .login__card {
+    grid-template-columns: 1fr;
+  }
+  .login__art {
+    display: none;
+  }
+  .login__form {
+    padding: var(--sp-8) var(--sp-5);
+  }
+  .user-chip__name {
+    display: none;
+  }
+  .user-chip {
+    padding-right: 0.2rem;
+  }
   .admin-shell {
     display: flex;
     flex-direction: column;

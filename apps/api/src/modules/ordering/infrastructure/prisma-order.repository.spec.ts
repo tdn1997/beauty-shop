@@ -86,7 +86,8 @@ class FakeOrderClient implements OrderPrismaClient {
     findMany: async (args: {
       skip: number;
       take: number;
-      orderBy: { id: string };
+      orderBy: readonly [{ createdAt: 'desc' }, { id: 'asc' }];
+      include: { lines: true };
     }): Promise<SalesOrderRow[]> => {
       this.#maybeFail();
       const allRows = [...this.rows.values()].sort((a, b) => a.id.localeCompare(b.id));

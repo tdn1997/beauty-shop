@@ -1,14 +1,12 @@
+import { api } from '@/lib/server/api-client';
 import { InventoryResponse } from '@/lib/types/admin';
 import InventoryTable from './InventoryTable';
 
+// Gọi thẳng API từ server component: api() tự gắn Bearer từ cookie phiên.
+// (Tự fetch sang /api/... của chính mình sẽ mất cookie → 401 → bảng rỗng.)
 async function fetchInventory(page = 1, limit = 20): Promise<InventoryResponse> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/inventory?page=${page}&limit=${limit}`, {
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    return { lots: [], total: 0, page };
-  }
+  const res = await api(`/inventory/lots?page=${page}&limit=${limit}`);
+  if (!res.ok) return { lots: [], total: 0, page };
   return res.json();
 }
 

@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { OrderStatus } from '../domain/order';
+import { PrismaOrderRepository, type OrderPrismaClient } from './prisma-order.repository';
 import { startPostgres, stopPostgres } from '../../../testcontainers/testcontainers.setup';
 
 const serum = {
@@ -197,5 +198,46 @@ describe('PrismaOrder IT', () => {
     const row = await prisma.salesOrder.findUnique({ where: { id: orderId } });
     expect(row!.discount).toBe(50000n);
     expect(row!.shippingFee).toBe(30000n);
+  });
+
+  it('IT07: should list stored orders together with their lines', async () => {
+    // arrange
+    const orderId = `ord-it07-${Date.now()}`;
+    await prisma.salesOrder.create({
+      data: {
+        id: orderId,
+        customerId: 'customer-it07',
+        currency: 'VND',
+        status: OrderStatus.Draft,
+        lines: { create: [{ id: `${orderId}:var_1`, ...serum }] },
+      },
+    });
+    const repository = new PrismaOrderRepository({
+      current: () => prisma as unknown as OrderPrismaClient,
+    });
+    // act
+    const { orders, total } = await repository.list(1, 10);
+    // assert
+    expect(total).toBe(1);
+    expect(orders[0]!.lines).toHaveLength(1);
+    expect(orders[0]!.itemsTotal.amount).toBe('918000');
+  });
+
+  it('IT08: should list the most recently created orders first', async () => {
+    // arrange
+    const base = { customerId: 'customer-it08', currency: 'VND', status: OrderStatus.Draft };
+    await prisma.salesOrder.create({
+      data: { ...base, id: 'b-older', createdAt: new Date('2026-01-01T00:00:00Z') },
+    });
+    await prisma.salesOrder.create({
+      data: { ...base, id: 'a-newer', createdAt: new Date('2026-02-01T00:00:00Z') },
+    });
+    const repository = new PrismaOrderRepository({
+      current: () => prisma as unknown as OrderPrismaClient,
+    });
+    // act
+    const { orders } = await repository.list(1, 10);
+    // assert
+    expect(orders.map((o) => o.id)).toEqual(['a-newer', 'b-older']);
   });
 });

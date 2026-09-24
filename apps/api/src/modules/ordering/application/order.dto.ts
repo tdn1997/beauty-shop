@@ -18,6 +18,9 @@ export interface OrderDto {
   readonly version: number;
   readonly currency: string;
   readonly itemsTotal: MoneyDto;
+  readonly discountTotal: MoneyDto;
+  readonly shippingFee: MoneyDto;
+  readonly grandTotal: MoneyDto;
   readonly shippingAddress: AddressDto | null;
   readonly cancellationReason: string | null;
   readonly lines: readonly OrderLineDto[];
@@ -32,6 +35,9 @@ export function toOrderDto(order: Order): OrderDto {
     version: order.version,
     currency: order.currency,
     itemsTotal: order.itemsTotal().toJSON(),
+    discountTotal: order.discountTotal().toJSON(),
+    shippingFee: order.shippingFee().toJSON(),
+    grandTotal: order.grandTotal().toJSON(),
     shippingAddress: order.shippingAddress?.toJSON() ?? null,
     cancellationReason: order.cancellationReason,
     lines: order.lines.map((line) => ({

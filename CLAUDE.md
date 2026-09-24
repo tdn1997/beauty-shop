@@ -115,6 +115,8 @@ Mock + adapter sandbox HTTP tổng quát đã có contract test; chưa có provi
 Catalog/address giờ đã có persistence thật (`PrismaPriceCatalog`, `PrismaAddressBook`,
 Giai đoạn 8) — không còn adapter rỗng ở composition root. Seed là 16 sản phẩm thật, ảnh
 Open Beauty Facts (CC BY-SA) trong `apps/web/public/products/` — giữ `CREDITS.md` khi đổi ảnh.
-Đổi tên sản phẩm seed → thêm tên cũ vào `previousNames`, nếu không seed báo va chạm id. Auth dùng opaque session 8 giờ và Bearer guard; web tải catalog động qua `GET /products`.
+Đổi tên sản phẩm seed → thêm tên cũ vào `previousNames`, nếu không seed báo va chạm id.
+Seed có 30 đơn demo + lô B/hết hạn/bị khoá; `reserved` của lô B = đúng lượng đơn CONFIRMED/PAID
+giữ (có test). User, đơn, lô đã tồn tại thì seed **không** ghi đè. Auth dùng opaque session 8 giờ và Bearer guard; web tải catalog động qua `GET /products`.
 Chưa tự reconciliation UNKNOWN hoặc lưu payment attempt lifecycle ngoài replay.
 `InventoryRepository` chưa có `save`/`create` qua port — seed ghi thẳng qua Prisma Client.

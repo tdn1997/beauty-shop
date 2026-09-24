@@ -54,7 +54,8 @@ export interface OrderPrismaClient {
     findMany(args: {
       skip: number;
       take: number;
-      orderBy: { id: string };
+      orderBy: readonly [{ createdAt: 'desc' }, { id: 'asc' }];
+      include: { lines: true };
     }): Promise<SalesOrderRow[]>;
     count(): Promise<number>;
   };
@@ -85,7 +86,9 @@ export class PrismaOrderRepository implements OrderRepository {
       this.#clients.current().salesOrder.findMany({
         skip,
         take: limit,
-        orderBy: { id: 'asc' },
+        // Mới nhất lên đầu; id phá hoà để phân trang ổn định.
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        include: { lines: true },
       }),
       this.#clients.current().salesOrder.count(),
     ]);
