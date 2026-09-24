@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import { OrderStatus } from '../domain/order';
+import { Order, OrderStatus } from '../domain/order';
+import { Money } from '../../shared/domain/money';
+import { PrismaOrderRepository, type OrderPrismaClient } from './prisma-order.repository';
 import { startPostgres, stopPostgres } from '../../../testcontainers/testcontainers.setup';
 
 const serum = {
@@ -197,5 +199,72 @@ describe('PrismaOrder IT', () => {
     const row = await prisma.salesOrder.findUnique({ where: { id: orderId } });
     expect(row!.discount).toBe(50000n);
     expect(row!.shippingFee).toBe(30000n);
+  });
+
+  it('IT07: should list stored orders together with their lines', async () => {
+    // arrange
+    const orderId = `ord-it07-${Date.now()}`;
+    await prisma.salesOrder.create({
+      data: {
+        id: orderId,
+        customerId: 'customer-it07',
+        currency: 'VND',
+        status: OrderStatus.Draft,
+        lines: { create: [{ id: `${orderId}:var_1`, ...serum }] },
+      },
+    });
+    const repository = new PrismaOrderRepository({
+      current: () => prisma as unknown as OrderPrismaClient,
+    });
+    // act
+    const { orders, total } = await repository.list(1, 10);
+    // assert
+    expect(total).toBe(1);
+    expect(orders[0]!.lines).toHaveLength(1);
+    expect(orders[0]!.itemsTotal.amount).toBe('918000');
+  });
+
+  it('IT08: should list the most recently created orders first', async () => {
+    // arrange
+    const base = { customerId: 'customer-it08', currency: 'VND', status: OrderStatus.Draft };
+    await prisma.salesOrder.create({
+      data: { ...base, id: 'b-older', createdAt: new Date('2026-01-01T00:00:00Z') },
+    });
+    await prisma.salesOrder.create({
+      data: { ...base, id: 'a-newer', createdAt: new Date('2026-02-01T00:00:00Z') },
+    });
+    const repository = new PrismaOrderRepository({
+      current: () => prisma as unknown as OrderPrismaClient,
+    });
+    // act
+    const { orders } = await repository.list(1, 10);
+    // assert
+    expect(orders.map((o) => o.id)).toEqual(['a-newer', 'b-older']);
+  });
+
+  it('IT09: should save a brand-new order together with its lines', async () => {
+    // arrange
+    const order = Order.draft({
+      id: `ord-it09-${Date.now()}`,
+      customerId: 'cus-it09',
+      currency: 'VND',
+    });
+    order.addQuotedLine({
+      ...serum,
+      unitPriceSnapshot: Money.fromMinorUnits(serum.unitPrice, 'VND'),
+    });
+    const repository = new PrismaOrderRepository({
+      current: () => prisma as unknown as OrderPrismaClient,
+    });
+    // act
+    const saved = await repository.save(order);
+    // assert
+    expect(saved.isOk()).toBe(true);
+    const row = await prisma.salesOrder.findUniqueOrThrow({
+      where: { id: order.id },
+      include: { lines: true },
+    });
+    expect(row.lines).toHaveLength(1);
+    expect(row.lines[0]).toMatchObject({ variantId: 'var_1', quantity: 2, unitPrice: 459000n });
   });
 });

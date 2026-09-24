@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 seedDemo(prisma)
   .then((r) =>
     console.log(
-      `Seeded products=${r.products} variants=${r.variants} lots=${r.lots} users=${r.users}`,
+      `Seeded products=${r.products} variants=${r.variants} lots=${r.lots} orders=${r.orders} users=${r.users}`,
     ),
   )
   .catch((e) => {

@@ -6,7 +6,7 @@ import { PaymentGatewayRegistry } from './application/payment-gateway.registry';
 import { PAYMENT_GATEWAY_REGISTRY, PaymentModule } from './payment.module';
 
 describe('PaymentModule', () => {
-  it('should export the registry with mock selected at the composition root', async () => {
+  it('should export the registry with the fake gateway selected at the composition root', async () => {
     // arrange
     const builder = Test.createTestingModule({ imports: [PaymentModule] });
     // confirm
@@ -15,8 +15,8 @@ describe('PaymentModule', () => {
     const module = await builder.compile();
     const registry = module.get<PaymentGatewayRegistry>(PAYMENT_GATEWAY_REGISTRY);
     // assert
-    expect(registry.default().provider).toBe('mock');
-    expect(registry.providers()).toEqual(['mock']);
+    expect(registry.default().provider).toBe('fake');
+    expect(registry.providers()).toEqual(['fake', 'mock']);
     await module.close();
   });
 });

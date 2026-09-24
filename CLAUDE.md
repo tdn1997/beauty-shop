@@ -111,9 +111,14 @@ Ownership phải kiểm trước replay; Result lỗi phải làm rollback, khô
 Ngoại lệ payment sau commit để nổi lên; lần retry trả UNKNOWN đã lưu, không initiate lại.
 Outbox dùng `@nestjs/schedule`, giao at-least-once, không bảo đảm exactly-once.
 Mock + adapter sandbox HTTP tổng quát đã có contract test; chưa có provider sandbox cụ thể.
+Mặc định là `FakeGateway.approving()` (luôn PAID, mỗi đơn trừ một lần); PAID → checkout gọi
+`order.markPaid()` và lưu cùng transaction với replay PAID.
 
 Catalog/address giờ đã có persistence thật (`PrismaPriceCatalog`, `PrismaAddressBook`,
-Giai đoạn 8) — không còn adapter rỗng ở composition root, seed cung cấp dữ liệu khớp
-với mock catalog trên web. Auth dùng opaque session 8 giờ và Bearer guard; web tải catalog động qua `GET /products`.
+Giai đoạn 8) — không còn adapter rỗng ở composition root. Seed là 16 sản phẩm thật, ảnh
+Open Beauty Facts (CC BY-SA) trong `apps/web/public/products/` — giữ `CREDITS.md` khi đổi ảnh.
+Đổi tên sản phẩm seed → thêm tên cũ vào `previousNames`, nếu không seed báo va chạm id.
+Seed có 30 đơn demo + lô B/hết hạn/bị khoá; `reserved` của lô B = đúng lượng đơn CONFIRMED/PAID
+giữ (có test). User, đơn, lô đã tồn tại thì seed **không** ghi đè. Auth dùng opaque session 8 giờ và Bearer guard; web tải catalog động qua `GET /products`.
 Chưa tự reconciliation UNKNOWN hoặc lưu payment attempt lifecycle ngoài replay.
 `InventoryRepository` chưa có `save`/`create` qua port — seed ghi thẳng qua Prisma Client.

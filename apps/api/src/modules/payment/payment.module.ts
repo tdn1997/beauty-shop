@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { PaymentGatewayRegistry } from './application/payment-gateway.registry';
+import { FakeGateway } from './infrastructure/fake.gateway';
 import { MockGateway } from './infrastructure/mock.gateway';
 
 export const PAYMENT_GATEWAY_REGISTRY = Symbol('PaymentGatewayRegistry');
@@ -9,8 +10,10 @@ export const PAYMENT_GATEWAY_REGISTRY = Symbol('PaymentGatewayRegistry');
   providers: [
     {
       provide: PAYMENT_GATEWAY_REGISTRY,
-      // Khi đã cắm client sandbox vào danh sách, đổi mặc định thành 'sandbox' chỉ sửa một dòng ở đây; ca sử dụng không đổi.
-      useFactory: () => new PaymentGatewayRegistry([MockGateway.scripted([])], 'mock'),
+      // Tạm dùng cổng giả luôn duyệt. Khi đã cắm client sandbox vào danh sách, đổi mặc định
+      // thành 'sandbox' chỉ sửa một dòng ở đây; ca sử dụng không đổi.
+      useFactory: () =>
+        new PaymentGatewayRegistry([FakeGateway.approving(), MockGateway.scripted([])], 'fake'),
     },
   ],
   exports: [PAYMENT_GATEWAY_REGISTRY],

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DomainError } from '../../shared/domain/domain-error';
+import { Money } from '../../shared/domain/money';
 import { Result } from '../../shared/domain/result';
 import { Order, OrderStatus } from '../domain/order';
 import { InMemoryOrderRepository } from '../infrastructure/in-memory-order.repository';
@@ -165,6 +166,9 @@ describe('OrderQueryService - read side', () => {
       version: 2,
       currency: 'VND',
       itemsTotal: { amount: '918000', currency: 'VND' },
+      discountTotal: { amount: '0', currency: 'VND' },
+      shippingFee: { amount: '0', currency: 'VND' },
+      grandTotal: { amount: '918000', currency: 'VND' },
       shippingAddress: { ...addressProps, line2: null },
       cancellationReason: null,
       lines: [
@@ -177,6 +181,27 @@ describe('OrderQueryService - read side', () => {
           subtotal: { amount: '918000', currency: 'VND' },
         },
       ],
+    });
+  });
+
+  it('should expose the quoted discount, shipping fee and grand total the client renders', async () => {
+    // arrange
+    const { repository, queries } = ctx;
+    const order = Order.draft({ id: 'ord_q', customerId: 'cus_1', currency: 'VND' });
+    order.addQuotedLine({
+      ...serum,
+      unitPriceSnapshot: Money.parse(serum.unitPrice, 'VND'),
+    });
+    order.applyQuotedAdjustments(Money.parse('91800', 'VND'), Money.parse('30000', 'VND'));
+    (await repository.save(order)).unwrap();
+    // act
+    const dto = await queries.findById('ord_q');
+    // assert
+    expect(dto).toMatchObject({
+      itemsTotal: { amount: '918000', currency: 'VND' },
+      discountTotal: { amount: '91800', currency: 'VND' },
+      shippingFee: { amount: '30000', currency: 'VND' },
+      grandTotal: { amount: '856200', currency: 'VND' },
     });
   });
 
