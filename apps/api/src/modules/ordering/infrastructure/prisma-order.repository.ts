@@ -45,7 +45,8 @@ export interface OrderPrismaClient {
       include: { lines: true };
     }): Promise<SalesOrderRow | null>;
     create(args: {
-      data: SalesOrderWriteRow & { lines: { create: OrderLineWriteRow[] } };
+      // Lồng trong create thì quan hệ tự gắn order; Prisma từ chối `orderId` ở đây.
+      data: SalesOrderWriteRow & { lines: { create: Omit<OrderLineWriteRow, 'orderId'>[] } };
     }): Promise<unknown>;
     updateMany(args: {
       where: { id: string; version: number };
@@ -133,7 +134,10 @@ export class PrismaOrderRepository implements OrderRepository {
 
   async #insert(snapshot: OrderSnapshot): Promise<void> {
     await this.#clients.current().salesOrder.create({
-      data: { ...toWriteRow(snapshot), lines: { create: toLineRows(snapshot) } },
+      data: {
+        ...toWriteRow(snapshot),
+        lines: { create: toLineRows(snapshot).map(({ orderId: _orderId, ...line }) => line) },
+      },
     });
   }
 }

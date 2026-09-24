@@ -111,6 +111,8 @@ Ownership phải kiểm trước replay; Result lỗi phải làm rollback, khô
 Ngoại lệ payment sau commit để nổi lên; lần retry trả UNKNOWN đã lưu, không initiate lại.
 Outbox dùng `@nestjs/schedule`, giao at-least-once, không bảo đảm exactly-once.
 Mock + adapter sandbox HTTP tổng quát đã có contract test; chưa có provider sandbox cụ thể.
+Mặc định là `FakeGateway.approving()` (luôn PAID, mỗi đơn trừ một lần); PAID → checkout gọi
+`order.markPaid()` và lưu cùng transaction với replay PAID.
 
 Catalog/address giờ đã có persistence thật (`PrismaPriceCatalog`, `PrismaAddressBook`,
 Giai đoạn 8) — không còn adapter rỗng ở composition root. Seed là 16 sản phẩm thật, ảnh

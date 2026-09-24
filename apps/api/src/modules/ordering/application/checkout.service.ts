@@ -151,8 +151,20 @@ export class CheckoutService {
       returnUrl: d.returnUrl,
     });
     if (outcome.isErr()) return Result.ok(response);
-    const completed = { ...response, payment: outcome.unwrap() };
-    await d.replay.complete(customerId, key, completed);
+    const payment = outcome.unwrap();
+    const completed = { ...response, payment };
+    if (payment.status !== PaymentStatus.Paid) {
+      await d.replay.complete(customerId, key, completed);
+      return Result.ok(completed);
+    }
+    // Trạng thái đơn và phản hồi replay "đã trả" phải cùng commit: lỡ một nửa thì
+    // lần retry sẽ báo PAID cho đơn vẫn CONFIRMED (hoặc ngược lại). Lỗi ở đây xảy ra
+    // sau khi tiền đã trừ → để nổi lên, retry trả UNKNOWN đã lưu chứ không trừ lại.
+    order.markPaid();
+    await d.transactions.run(async () => {
+      (await d.orders.save(order)).unwrap();
+      await d.replay.complete(customerId, key, completed);
+    });
     return Result.ok(completed);
   }
 }

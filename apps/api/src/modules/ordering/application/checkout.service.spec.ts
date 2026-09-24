@@ -7,7 +7,7 @@ import { Quote } from '../../pricing/domain/quote';
 import { QuoteLine } from '../../pricing/domain/quote-line';
 import { PaymentGatewayRegistry } from '../../payment/application/payment-gateway.registry';
 import { DomainError } from '../../shared/domain/domain-error';
-import { PaymentInitiation } from '../../payment/application/payment-gateway';
+import { PaymentInitiation, PaymentOutcome } from '../../payment/application/payment-gateway';
 import { PaymentStatus } from '../../payment/domain/payment-status';
 
 const request = {
@@ -49,7 +49,7 @@ function fixture() {
     discount: Money.parse('10000', 'VND'),
     shippingFee: Money.parse('20000', 'VND'),
   });
-  const initiate = vi.fn(async (_request: PaymentInitiation) => {
+  const initiate = vi.fn(async (_request: PaymentInitiation): Promise<Result<PaymentOutcome>> => {
     expect(inTransaction).toBe(false);
     expect(state.orders).toHaveLength(1);
     expect(state.events).toHaveLength(1);
@@ -115,7 +115,13 @@ function fixture() {
     nextId: () => 'order-1',
     returnUrl: 'https://shop.example/payment',
   };
-  return { state, dependencies, initiate, checkout: new CheckoutService(dependencies) };
+  return {
+    state,
+    dependencies,
+    initiate,
+    isInTransaction: () => inTransaction,
+    checkout: new CheckoutService(dependencies),
+  };
 }
 
 describe('CheckoutService', () => {
@@ -217,7 +223,7 @@ describe('CheckoutService', () => {
     dependencies.replay.find.mockClear();
     const before = structuredClone(state);
     // confirm
-    expect(state.orders).toHaveLength(1);
+    expect(state.orders.at(-1)).toMatchObject({ id: 'order-1', status: 'PAID' });
     // act
     const result = await checkout.placeOrder(principal, 'key', request);
     // assert
@@ -232,7 +238,7 @@ describe('CheckoutService', () => {
     await checkout.placeOrder(principal, 'key', request);
     const before = structuredClone(state);
     // confirm
-    expect(state.orders).toHaveLength(1);
+    expect(state.orders.at(-1)).toMatchObject({ id: 'order-1', status: 'PAID' });
     // act
     const result = await checkout.placeOrder(principal, 'key', {
       ...request,
@@ -264,18 +270,63 @@ describe('CheckoutService', () => {
     const result = await checkout.placeOrder(principal, 'key', request);
     // assert
     expect(result.isOk()).toBe(true);
-    expect(state.orders).toMatchObject([
-      {
-        customerId: 'customer',
-        status: 'CONFIRMED',
-        discountMinorUnits: 10000n,
-        shippingFeeMinorUnits: 20000n,
-      },
-    ]);
+    expect(state.orders[0]).toMatchObject({
+      customerId: 'customer',
+      status: 'CONFIRMED',
+      discountMinorUnits: 10000n,
+      shippingFeeMinorUnits: 20000n,
+    });
     expect(dependencies.inventory.reserveForVariant).toHaveBeenCalledWith('variant', 2);
     expect(initiate.mock.calls[0]?.[0]).toMatchObject({ orderId: 'order-1' });
     expect(initiate.mock.calls[0]?.[0].amount.equals(Money.parse('210000', 'VND'))).toBe(true);
     expect(state.record.response.payment.status).toBe(PaymentStatus.Paid);
     expect(JSON.parse(JSON.stringify(state.record.response))).toEqual(result.unwrap());
+  });
+
+  it('should mark the order paid together with the paid response when the gateway approves', async () => {
+    // arrange
+    const { checkout, state, dependencies, isInTransaction } = fixture();
+    const writes: { what: string; inTransaction: boolean }[] = [];
+    const save = dependencies.orders.save.getMockImplementation()!;
+    dependencies.orders.save.mockImplementation(async (order: any) => {
+      writes.push({ what: `save:${order.status}`, inTransaction: isInTransaction() });
+      return save(order);
+    });
+    const complete = dependencies.replay.complete.getMockImplementation()!;
+    dependencies.replay.complete.mockImplementation(async (customer, key, response: any) => {
+      writes.push({ what: `replay:${response.payment.status}`, inTransaction: isInTransaction() });
+      return complete(customer, key, response);
+    });
+    // confirm
+    expect(state.orders).toEqual([]);
+    // act
+    const result = await checkout.placeOrder(principal, 'key', request);
+    // assert
+    expect(result.unwrap().payment.status).toBe(PaymentStatus.Paid);
+    expect(state.orders.at(-1)).toMatchObject({ status: 'PAID' });
+    expect(writes.slice(-2)).toEqual([
+      { what: 'save:PAID', inTransaction: true },
+      { what: 'replay:PAID', inTransaction: true },
+    ]);
+  });
+
+  it('should leave the order confirmed when the gateway declines', async () => {
+    // arrange
+    const { checkout, state, dependencies, initiate } = fixture();
+    initiate.mockResolvedValueOnce(
+      Result.ok({
+        status: PaymentStatus.Failed,
+        providerRef: 'ref',
+        redirectUrl: null,
+        reason: 'Thanh toán bị từ chối',
+      }),
+    );
+    // act
+    const result = await checkout.placeOrder(principal, 'key', request);
+    // assert
+    expect(result.unwrap().payment.status).toBe(PaymentStatus.Failed);
+    expect(dependencies.orders.save).toHaveBeenCalledTimes(1);
+    expect(state.orders.at(-1)).toMatchObject({ status: 'CONFIRMED' });
+    expect(state.record.response.payment.status).toBe(PaymentStatus.Failed);
   });
 });

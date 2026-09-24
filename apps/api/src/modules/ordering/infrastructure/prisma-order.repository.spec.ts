@@ -65,12 +65,15 @@ class FakeOrderClient implements OrderPrismaClient {
       return { ...row, lines: this.lines.get(args.where.id) ?? [] };
     },
     create: async (args: {
-      data: SalesOrderWriteRow & { lines: { create: OrderLineWriteRow[] } };
+      data: SalesOrderWriteRow & { lines: { create: Omit<OrderLineWriteRow, 'orderId'>[] } };
     }): Promise<unknown> => {
       this.#maybeFail();
       const { lines, ...row } = args.data;
       this.rows.set(row.id, row);
-      this.lines.set(row.id, [...lines.create]);
+      this.lines.set(
+        row.id,
+        lines.create.map((line) => ({ ...line, orderId: row.id })),
+      );
       return row;
     },
     updateMany: async (args: {
