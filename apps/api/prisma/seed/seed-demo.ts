@@ -18,7 +18,7 @@ export async function seedDemo(prisma: PrismaClient, env: NodeJS.ProcessEnv = pr
   await prisma.$transaction(async (tx) => {
     for (const p of catalogFixtures) {
       const collision = await tx.product.findUnique({ where: { id: p.id } });
-      if (collision && collision.name !== p.name)
+      if (collision && collision.name !== p.name && !p.previousNames.includes(collision.name))
         throw new Error(`Product identifier collision: ${p.id}`);
       await tx.product.upsert({
         where: { id: p.id },

@@ -35,7 +35,11 @@ export default function CartPage() {
         <div className="cart-lines">
           {cart.items.map((item) => (
             <article className="card cart-line" key={item.variantId}>
-              <div className="cart-line__thumb" aria-hidden="true" />
+              {item.imagePath ? (
+                <img className="cart-line__thumb" src={item.imagePath} alt="" />
+              ) : (
+                <div className="cart-line__thumb" aria-hidden="true" />
+              )}
               <div>
                 <h2 className="section-title">{item.name}</h2>
                 <div className="mono text-muted truncate" title={item.sku}>

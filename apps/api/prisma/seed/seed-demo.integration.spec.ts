@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startPostgres, stopPostgres } from '../../src/testcontainers/testcontainers.setup';
+import { catalogFixtures } from './catalog.fixtures';
 import { seedDemo } from './seed-demo';
 const env = {
   NODE_ENV: 'test',
@@ -54,6 +55,33 @@ describe('demo seed integration', () => {
     });
     expect(address.line1).toBe('Edited address');
     expect(lot).toMatchObject({ onHand: 49, reserved: 3, version: 8 });
+  });
+  it('should rename a product still stored under a previous fixture name', async () => {
+    // arrange
+    const fixture = catalogFixtures.find((p) => p.id === 'prod-serum')!;
+    const legacyName = fixture.previousNames[0]!;
+    await prisma.product.update({ where: { id: fixture.id }, data: { name: legacyName } });
+    // confirm
+    expect(legacyName).not.toBe(fixture.name);
+    // act
+    await seedDemo(prisma, env);
+    // assert
+    const product = await prisma.product.findUniqueOrThrow({ where: { id: fixture.id } });
+    expect(product.name).toBe(fixture.name);
+  });
+  it('should reject a product whose stored name matches no known fixture name', async () => {
+    // arrange
+    await prisma.product.update({ where: { id: 'prod-serum' }, data: { name: 'Foreign serum' } });
+    const before = await prisma.product.findMany({ orderBy: { id: 'asc' } });
+    // act
+    const seeding = seedDemo(prisma, env);
+    // assert
+    await expect(seeding).rejects.toThrow('Product identifier collision: prod-serum');
+    expect(await prisma.product.findMany({ orderBy: { id: 'asc' } })).toEqual(before);
+    await prisma.product.update({
+      where: { id: 'prod-serum' },
+      data: { name: catalogFixtures[0]!.name },
+    });
   });
   it('should roll back all writes when a collision exists', async () => {
     await prisma.product.create({ data: { id: 'collision', name: 'Before', status: 'ACTIVE' } });

@@ -16,6 +16,8 @@ export interface CartItem {
   name: string;
   price: string;
   quantity: number;
+  /** Chỉ để hiển thị; giỏ cũ trong sessionStorage có thể không có. */
+  imagePath?: string | null;
 }
 
 interface Cart {
